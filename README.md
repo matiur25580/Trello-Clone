@@ -59,7 +59,7 @@ npm install
 npm run dev
 
 💡 Author
-Matiur Rahman (matiur25580)
+Matiur Rahaman (matiur25580)
 
 ---
 
