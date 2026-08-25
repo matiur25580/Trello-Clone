@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://trello-clone-enik.onrender.com/api/$1"
+    }
+  ]
+}
