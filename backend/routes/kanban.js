@@ -1,0 +1,12 @@
+const express=require('express');const r=express.Router();
+const auth=require('../middleware/auth');
+const Board=require('../models/Board');const List=require('../models/List');const Card=require('../models/Card');
+r.post('/boards',auth(),async(req,res)=>{try{const b=await Board.create({...req.body,owner:req.user.id});res.json({success:true,message:'Board created successfully',board:b});}catch(e){res.status(500).json({message:e.message})}});
+r.get('/boards',auth(),async(req,res)=>{const bs=await Board.find({$or:[{owner:req.user.id},{members:req.user.id}]}).sort({createdAt:-1});res.json({success:true,boards:bs});});
+r.post('/lists',auth(),async(req,res)=>{try{const l=await List.create(req.body);res.json({success:true,message:'List added successfully',list:l});}catch(e){res.status(500).json({message:e.message})}});
+r.get('/boards/:id/lists',auth(),async(req,res)=>{const ls=await List.find({board:req.params.id}).sort({position:1});res.json({success:true,lists:ls});});
+r.post('/cards',auth(),async(req,res)=>{try{const c=await Card.create(req.body);res.json({success:true,message:'Card created successfully',card:c});}catch(e){res.status(500).json({message:e.message})}});
+r.get('/lists/:id/cards',auth(),async(req,res)=>{const cs=await Card.find({list:req.params.id,isArchived:false}).sort({position:1});res.json({success:true,cards:cs});});
+r.put('/cards/:id',auth(),async(req,res)=>{const c=await Card.findByIdAndUpdate(req.params.id,req.body,{new:true});res.json({success:true,message:'Card updated successfully',card:c});});
+r.delete('/cards/:id',auth(),async(req,res)=>{await Card.findByIdAndUpdate(req.params.id,{isArchived:true});res.json({success:true,message:'Card archived successfully'});});
+module.exports=r;
