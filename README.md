@@ -48,7 +48,7 @@ backend/
 ```bash
 cd backend
 npm install
-node server.cjs
+npm run dev
 ```
 
 The demo server listens on port `5000`. Its board data is held in memory and resets when the process restarts.
