@@ -6,7 +6,7 @@ const { randomUUID } = require("node:crypto");
 dotenv.config();
 
 const app = express();
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
