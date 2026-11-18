@@ -51,7 +51,7 @@ npm install
 npm run dev
 ```
 
-The demo server listens on port `5000`. Its board data is held in memory and resets when the process restarts.
+The demo server listens on port `5000`. Its board data is held in memory and resets when the process restarts. Set `CORS_ORIGIN` in `backend/.env` to a comma-separated list of permitted frontend origins if your Vite URL differs from `http://localhost:3000`.
 
 ### 2. Start the frontend
 
@@ -71,7 +71,7 @@ The current repository contains multiple backend entry points that are not yet u
 
 - `backend/server.cjs` is the lightweight in-memory demo server.
 - `backend/app.js` is a separate MongoDB-backed board example and currently uses a hard-coded local MongoDB URL.
-- `backend/package.json` defines a `dev` script that targets `server.js`, but that entry point is not present in the repository snapshot reviewed.
+- `backend/package.json` now starts `server.cjs` consistently through both `npm run dev` and `npm start`.
 
 The frontend login and registration screens call `/api/auth/login`, `/api/auth/send-otp` and `/api/auth/register`; those endpoints are not implemented by the current `server.cjs` demo server. A client-side token check is not a substitute for server-side authentication or authorization.
 
