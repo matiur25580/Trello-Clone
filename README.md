@@ -90,3 +90,9 @@ Do not describe the current version as a fully working MERN authentication syste
 ## Maintainer
 
 **Matiur Rahaman** · [GitHub](https://github.com/matiur25580)
+
+## Live Demo
+
+**Frontend:** [Open Live Demo](https://trello-clone-zeta-three.vercel.app)
+
+> This link points to the deployed frontend. Features that depend on the API, database, email, file storage, or other external services may require the corresponding backend services and environment variables to be configured. Use test data only; this demo is not a production service.
