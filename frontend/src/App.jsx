@@ -64,6 +64,7 @@ export default function App(){
     <Route path="/login" element={<Login/>}/>
     <Route path="/register" element={<Register/>}/>
     <Route path="/success" element={<Success/>}/>
+    <Route path="/dashboard/boards/:boardId" element={<Protected/>}/>
     <Route path="/dashboard/*" element={<Protected/>}/>
   </Routes></BrowserRouter></ThemeProvider>
 }
