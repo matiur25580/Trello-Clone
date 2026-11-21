@@ -7,7 +7,7 @@ const Otp = require('../models/Otp');
 const { sendOTP } = require('../utils/sendEmail');
 
 const router = express.Router();
-const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateRegistration(input = {}) {
   const fullName = input.fullName;
@@ -17,7 +17,7 @@ function validateRegistration(input = {}) {
   if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
       !emailPattern.test(email) || email.length > 254 ||
       typeof password !== 'string' || password.length < 12 || password.length > 128 ||
-      typeof otp !== 'string' || !/^\\d{6}$/.test(otp)) return null;
+      typeof otp !== 'string' || !/^\d{6}$/.test(otp)) return null;
   return { fullName: fullName.trim(), email, password, otp };
 }
 
