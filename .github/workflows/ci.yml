@@ -33,7 +33,7 @@ jobs:
       - run: npm run build
         working-directory: frontend
   browser-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
