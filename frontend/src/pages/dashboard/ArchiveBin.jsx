@@ -8,18 +8,26 @@ export default function ArchiveBin(){
   const [loading,setLoading]=useState(true);
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState('');
-  const load=useCallback(async()=>{
-    try{
-      const response=await apiFetch('/api/kanban/archive');
-      const data=await response.json().catch(()=>({}));
-      if(response.status===401){navigate('/login');return;}
-      if(!response.ok)throw new Error(data.message||'Unable to load archive.');
-      setArchive({boards:data.boards||[],lists:data.lists||[],cards:data.cards||[]});
-      setMessage('');
-    }catch(error){setMessage(error.message||'Unable to load archive.');}
-    finally{setLoading(false);}
+  const fetchArchive=useCallback(async()=>{
+    const response=await apiFetch('/api/kanban/archive');
+    const data=await response.json().catch(()=>({}));
+    if(response.status===401){navigate('/login');throw new Error('Your session expired.');}
+    if(!response.ok)throw new Error(data.message||'Unable to load archive.');
+    return {boards:data.boards||[],lists:data.lists||[],cards:data.cards||[]};
   },[navigate]);
-  useEffect(()=>{void load();},[load]);
+  const load=useCallback(async()=>{
+    try{setArchive(await fetchArchive());setMessage('');}
+    catch(error){setMessage(error.message||'Unable to load archive.');}
+    finally{setLoading(false);}
+  },[fetchArchive]);
+  useEffect(()=>{
+    let active=true;
+    fetchArchive()
+      .then(data=>{if(active)setArchive(data);})
+      .catch(error=>{if(active)setMessage(error.message||'Unable to load archive.');})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[fetchArchive]);
   const restore=async(kind,id)=>{
     const key=kind+':'+id;
     if(busy)return;
