@@ -7,7 +7,7 @@ import Success from './pages/auth/Success';
 import Kanban from './pages/dashboard/Kanban';
 
 function Dashboard(){
-  const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\\/$/,'');
+  const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\/$/,'');
   const logout=async()=>{
     const token=localStorage.getItem('token');
     try{if(token) await fetch(`${API}/api/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});}catch(_error){}
