@@ -154,3 +154,80 @@ Do not use real sensitive information until these controls and the deployment en
 ## Maintainer
 
 **Matiur Rahaman** · [GitHub](https://github.com/matiur25580)
+
+
+## Dashboard Gallery
+
+Explore 12 illustrative Kanban workspaces for workspace overview, boards, personal tasks, team workload, sprints, due dates, priorities, activity, attachments, membership, automation and productivity analytics. These previews use sample values and are not screenshots of live boards or actual user activity.
+
+### 01. Workspace Overview
+
+Workspace activity, board health, open tasks and collaboration workload.
+
+![Workspace Overview dashboard preview](docs/readme-dashboard-gallery/dashboard-01.svg)
+
+### 02. Board Overview
+
+Board lists, card distribution, owners and progress across workflows.
+
+![Board Overview dashboard preview](docs/readme-dashboard-gallery/dashboard-02.svg)
+
+### 03. My Tasks
+
+Assigned cards, due dates, priority and personal workload balance.
+
+![My Tasks dashboard preview](docs/readme-dashboard-gallery/dashboard-03.svg)
+
+### 04. Team Workload
+
+Member assignments, task distribution, capacity and delivery trends.
+
+![Team Workload dashboard preview](docs/readme-dashboard-gallery/dashboard-04.svg)
+
+### 05. Sprint & Milestones
+
+Sprint scope, milestone progress, burndown and delivery confidence.
+
+![Sprint & Milestones dashboard preview](docs/readme-dashboard-gallery/dashboard-05.svg)
+
+### 06. Due Dates & Calendar
+
+Upcoming due dates, calendar workload, overdue tasks and reminders.
+
+![Due Dates & Calendar dashboard preview](docs/readme-dashboard-gallery/dashboard-06.svg)
+
+### 07. Labels & Priorities
+
+Task labels, priority mix, blockers and category-level workload.
+
+![Labels & Priorities dashboard preview](docs/readme-dashboard-gallery/dashboard-07.svg)
+
+### 08. Comments & Activity
+
+Recent comments, card changes, mentions and collaboration activity.
+
+![Comments & Activity dashboard preview](docs/readme-dashboard-gallery/dashboard-08.svg)
+
+### 09. Attachments & Files
+
+Board attachments, document links, recent uploads and file activity.
+
+![Attachments & Files dashboard preview](docs/readme-dashboard-gallery/dashboard-09.svg)
+
+### 10. Board Membership
+
+Board access, invitations, member roles and membership changes.
+
+![Board Membership dashboard preview](docs/readme-dashboard-gallery/dashboard-10.svg)
+
+### 11. Automation & Rules
+
+Board rules, automated actions, execution history and failure monitoring.
+
+![Automation & Rules dashboard preview](docs/readme-dashboard-gallery/dashboard-11.svg)
+
+### 12. Productivity Analytics
+
+Cycle time, throughput, task completion and team delivery patterns.
+
+![Productivity Analytics dashboard preview](docs/readme-dashboard-gallery/dashboard-12.svg)
