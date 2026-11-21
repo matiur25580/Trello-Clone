@@ -113,7 +113,10 @@ router.put('/cards/:id', async (req, res, next) => {
       if (!isId(body.listId)) return res.status(400).json({ success: false, message: 'Invalid destination list.' });
       const destination = await List.findOne({ _id: body.listId, board: card.board });
       if (!destination) return res.status(400).json({ success: false, message: 'Destination list must belong to the same board.' });
-      card.list = destination._id;
+      if (!card.list.equals(destination._id)) {
+        card.position = await Card.countDocuments({ list: destination._id, isArchived: false });
+        card.list = destination._id;
+      }
     }
     await card.save();
     return res.json({ success: true, message: 'Card updated.', card });
