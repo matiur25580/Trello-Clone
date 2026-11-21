@@ -19,6 +19,16 @@ async function accessibleBoard(boardId, userId) {
   });
 }
 
+router.delete('/boards/:id', async (req, res, next) => {
+  try {
+    const board = await accessibleBoard(req.params.id, req.user._id);
+    if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
+    board.isArchived = true;
+    await board.save();
+    return res.json({ success: true, message: 'Board archived. Its lists and cards are retained but no longer accessible.' });
+  } catch (error) { return next(error); }
+});
+
 router.get('/boards', async (req, res, next) => {
   try {
     const boards = await Board.find({
@@ -61,7 +71,7 @@ router.get('/boards/:id/lists', async (req, res, next) => {
   try {
     const board = await accessibleBoard(req.params.id, req.user._id);
     if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
-    const lists = await List.find({ board: board._id }).sort({ position: 1 }).lean();
+    const lists = await List.find({ board: board._id, isArchived: false }).sort({ position: 1 }).lean();
     return res.json({ success: true, board: { _id: board._id, title: board.title, description: board.description, color: board.color }, lists });
   } catch (error) { return next(error); }
 });
@@ -73,7 +83,7 @@ router.post('/lists', async (req, res, next) => {
     if (!title || !isId(boardId)) return res.status(400).json({ success: false, message: 'A valid board and list title are required.' });
     const board = await accessibleBoard(boardId, req.user._id);
     if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
-    const position = await List.countDocuments({ board: board._id });
+    const position = await List.countDocuments({ board: board._id, isArchived: false });
     const list = await List.create({ title, board: board._id, position });
     return res.status(201).json({ success: true, message: 'List created.', list });
   } catch (error) { return next(error); }
@@ -82,7 +92,7 @@ router.post('/lists', async (req, res, next) => {
 router.put('/lists/:id', async (req, res, next) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'List not found.' });
-    const list = await List.findById(req.params.id);
+    const list = await List.findOne({ _id: req.params.id, isArchived: false });
     if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'List not found.' });
     const title = cleanText(req.body?.title, 100);
     if (!title) return res.status(400).json({ success: false, message: 'List title cannot be empty.' });
@@ -92,10 +102,21 @@ router.put('/lists/:id', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.delete('/lists/:id', async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'List not found.' });
+    const list = await List.findOne({ _id: req.params.id, isArchived: false });
+    if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'List not found.' });
+    list.isArchived = true;
+    await list.save();
+    return res.json({ success: true, message: 'List archived. Its cards are retained and hidden with the list.' });
+  } catch (error) { return next(error); }
+});
+
 router.get('/lists/:id/cards', async (req, res, next) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'List not found.' });
-    const list = await List.findById(req.params.id).lean();
+    const list = await List.findOne({ _id: req.params.id, isArchived: false }).lean();
     if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'List not found.' });
     const cards = await Card.find({ list: list._id, isArchived: false }).sort({ position: 1 }).lean();
     return res.json({ success: true, cards });
@@ -107,7 +128,7 @@ router.post('/cards', async (req, res, next) => {
     const listId = req.body?.listId || req.body?.list;
     const title = cleanText(req.body?.title, 200);
     if (!title || !isId(listId)) return res.status(400).json({ success: false, message: 'A valid list and card title are required.' });
-    const list = await List.findById(listId);
+    const list = await List.findOne({ _id: listId, isArchived: false });
     if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'List not found.' });
     const position = await Card.countDocuments({ list: list._id, isArchived: false });
     const card = await Card.create({
@@ -141,9 +162,24 @@ router.put('/cards/:id', async (req, res, next) => {
       if (date && Number.isNaN(date.getTime())) return res.status(400).json({ success: false, message: 'Invalid due date.' });
       card.dueDate = date;
     }
+    if (Object.hasOwn(body, 'checklist')) {
+      if (!Array.isArray(body.checklist) || body.checklist.length > 50) {
+        return res.status(400).json({ success: false, message: 'Checklist must contain at most 50 items.' });
+      }
+      const checklist = [];
+      for (const item of body.checklist) {
+        if (!item || typeof item !== 'object' || Array.isArray(item) ||
+            typeof item.text !== 'string' || !item.text.trim() || item.text.trim().length > 300 ||
+            (Object.hasOwn(item, 'done') && typeof item.done !== 'boolean')) {
+          return res.status(400).json({ success: false, message: 'Each checklist item needs text (1–300 characters) and an optional boolean done value.' });
+        }
+        checklist.push({ text: item.text.trim(), done: item.done === true });
+      }
+      card.checklist = checklist;
+    }
     if (Object.hasOwn(body, 'listId')) {
       if (!isId(body.listId)) return res.status(400).json({ success: false, message: 'Invalid destination list.' });
-      const destination = await List.findOne({ _id: body.listId, board: card.board });
+      const destination = await List.findOne({ _id: body.listId, board: card.board, isArchived: false });
       if (!destination) return res.status(400).json({ success: false, message: 'Destination list must belong to the same board.' });
       if (!card.list.equals(destination._id)) {
         card.position = await Card.countDocuments({ list: destination._id, isArchived: false });
