@@ -54,7 +54,7 @@ export default function ArchiveBin(){
     {message&&<p role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:10,borderRadius:8}}>{message}</p>}
     {loading?<p>Loading archive…</p>:total===0?<p style={{color:'#64748b'}}>Your archive is empty.</p>:<>
       <section style={section}><h3>Boards ({archive.boards.length})</h3>
-        {archive.boards.map(item=><div key={item._id} style={row}><strong>{item.title}</strong><button type="button" disabled={!!busy} onClick={()=>restore('boards',item._id)} style={button}>{busy==='boards:'+item._id?'Restoring…':'Restore board'}</button></div>)}
+        {archive.boards.map(item=><div key={item._id} style={row}><strong>{item.title}</strong><button type="button" disabled={!!busy||item.canRestore===false} title={item.canRestore===false?'Only the board owner can restore this board':''} onClick={()=>restore('boards',item._id)} style={button}>{busy==='boards:'+item._id?'Restoring…':item.canRestore===false?'Owner only':'Restore board'}</button></div>)}
         {!archive.boards.length&&<small style={{color:'#64748b'}}>No archived boards</small>}
       </section>
       <section style={section}><h3>Lists ({archive.lists.length})</h3>

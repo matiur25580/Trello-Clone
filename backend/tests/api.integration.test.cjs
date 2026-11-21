@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
+const User = require('../models/User');
+const Board = require('../models/Board');
 
 process.env.JWT_SECRET = 'integration-test-jwt-secret-at-least-32-characters';
 process.env.OTP_SECRET = 'integration-test-otp-secret-at-least-32-characters';
@@ -254,6 +256,14 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     });
     assert.equal(forbiddenBoardArchive.status, 404);
 
+    const bobUser = await User.findOne({ email: 'bob@example.test' });
+    assert.ok(bobUser);
+    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bobUser._id } });
+    const memberBoardArchive = await request('/api/kanban/boards/' + board._id, {
+      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(memberBoardArchive.status, 404);
+
     const archiveCard = await request('/api/kanban/cards/' + card._id, {
       method: 'DELETE', cookies: alice.cookies, csrf: alice.csrf
     });
@@ -278,8 +288,20 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(archiveBin.status, 200);
     const archived = await archiveBin.json();
     assert.equal(archived.boards.some(item => String(item._id) === String(board._id)), true);
+    assert.equal(archived.boards.find(item => String(item._id) === String(board._id)).canRestore, true);
     assert.equal(archived.lists.some(item => String(item._id) === String(secondList._id)), true);
     assert.equal(archived.cards.some(item => String(item._id) === String(card._id)), true);
+    const bobArchive = await request('/api/kanban/archive', { cookies: bob.cookies });
+    const bobArchiveData = await bobArchive.json();
+    assert.equal(bobArchiveData.boards.some(item => String(item._id) === String(board._id)), true);
+    assert.equal(bobArchiveData.boards.find(item => String(item._id) === String(board._id)).canRestore, false);
+    assert.equal(bobArchiveData.lists.some(item => String(item._id) === String(secondList._id)), true);
+    assert.equal(bobArchiveData.cards.some(item => String(item._id) === String(card._id)), true);
+    const forbiddenRestore = await request('/api/kanban/boards/' + board._id + '/restore', {
+      method: 'POST', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(forbiddenRestore.status, 404);
+
     const restoreCardTooEarly = await request('/api/kanban/cards/' + card._id + '/restore', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf
     });
@@ -298,12 +320,6 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(restoreCard.status, 200);
     const restoredCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: alice.cookies });
     assert.equal((await restoredCards.json()).cards.some(item => String(item._id) === String(card._id)), true);
-    const bobArchive = await request('/api/kanban/archive', { cookies: bob.cookies });
-    assert.deepEqual(await bobArchive.json(), { success: true, boards: [], lists: [], cards: [] });
-    const forbiddenRestore = await request('/api/kanban/boards/' + board._id + '/restore', {
-      method: 'POST', cookies: bob.cookies, csrf: bob.csrf
-    });
-    assert.equal(forbiddenRestore.status, 404);
 
     const logout = await request('/api/auth/logout', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf
