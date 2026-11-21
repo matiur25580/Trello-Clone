@@ -9,7 +9,6 @@ export default function ArchiveBin(){
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState('');
   const load=useCallback(async()=>{
-    setLoading(true);
     try{
       const response=await apiFetch('/api/kanban/archive');
       const data=await response.json().catch(()=>({}));
