@@ -137,7 +137,7 @@ test('board, list, card and checklist workflows work in the browser', async ({ p
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel('Title', { exact: true }).fill('Ship reliable browser tests');
   await page.getByRole('button', { name: '+ Checklist item' }).click();
-  await page.getByRole('textbox').filter({ hasValue: '' }).last().fill('Verify CI workflow');
+  await page.getByLabel('Checklist item 1').fill('Verify CI workflow');
   await page.getByRole('button', { name: 'Save card' }).click();
 
   await expect(page.getByText('Ship reliable browser tests', { exact: true })).toBeVisible();
