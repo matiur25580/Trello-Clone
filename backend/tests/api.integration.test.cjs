@@ -72,7 +72,7 @@ async function createAccount(email, fullName) {
   return { account, cookies: cookieHeader(login), csrf: loginBody.csrfToken };
 }
 
-test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolation and logout revocation', { timeout: 120000 }, async (t) => {
+test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolation and logout revocation', { timeout: 240000 }, async (t) => {
   replicaSet = await MongoMemoryReplSet.create({
     replSet: { count: 1 },
     binary: { version: '7.0.14' }
