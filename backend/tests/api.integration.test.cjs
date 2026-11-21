@@ -221,14 +221,6 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const forbiddenCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
     assert.equal(forbiddenCards.status, 404);
 
-    const bobUser = await User.findOne({ email: 'bob@example.test' });
-    assert.ok(bobUser);
-    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bobUser._id } });
-    const bobBoardArchiveBeforeOwner = await request('/api/kanban/boards/' + board._id, {
-      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
-    });
-    assert.equal(bobBoardArchiveBeforeOwner.status, 404);
-
     const bobBoardResponse = await request('/api/kanban/boards', {
       method: 'POST', cookies: bob.cookies, csrf: bob.csrf,
       body: { title: 'Bob private board' }
@@ -263,6 +255,14 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
       method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
     });
     assert.equal(forbiddenBoardArchive.status, 404);
+
+    const bobUser = await User.findOne({ email: 'bob@example.test' });
+    assert.ok(bobUser);
+    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bobUser._id } });
+    const memberBoardArchive = await request('/api/kanban/boards/' + board._id, {
+      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(memberBoardArchive.status, 404);
 
     const archiveCard = await request('/api/kanban/cards/' + card._id, {
       method: 'DELETE', cookies: alice.cookies, csrf: alice.csrf
