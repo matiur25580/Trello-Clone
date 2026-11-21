@@ -11,8 +11,8 @@ module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
       if (!key || key.length > 256) return res.status(400).json({ message: 'Unable to evaluate request rate limit.' });
       const now = new Date();
       const nextReset = new Date(now.getTime() + windowMs);
-      const record = await RateLimit.findOneAndUpdate(
-        { key },
+      const filter = { key };
+      const update = [
         [{
           $set: {
             count: {
@@ -30,9 +30,15 @@ module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
               ]
             }
           }
-        }],
-        { new: true, upsert: true }
-      );
+        }];
+      let record;
+      try {
+        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: false, setDefaultsOnInsert: false });
+        if (!record) record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
+      }
 
       if (record.count > limit) {
         res.set('Retry-After', String(Math.max(1, Math.ceil((record.resetAt.getTime() - now.getTime()) / 1000))));
