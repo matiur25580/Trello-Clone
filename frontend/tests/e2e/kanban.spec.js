@@ -55,8 +55,9 @@ async function installApiMocks(page, { authenticated = true } = {}) {
       state.boards = [board];
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, board }) });
     }
-    if (path === `/api/kanban/boards/${boardId}/lists` && method === 'GET') {
-      return json({ success: true, board: state.boards[0] || { _id: boardId, title: 'Project Alpha' }, lists: state.lists });
+    if (path.endsWith(`/api/kanban/boards/${boardId}/lists`) && method === 'GET') {
+      const board = state.boards.find(item => item._id === boardId);
+      return json({ success: true, board: { _id: boardId, title: board?.title || 'Project Alpha', description: board?.description || '', color: board?.color || '#2563eb' }, lists: state.lists });
     }
     if (path === `/api/kanban/boards/${boardId}` && method === 'PUT') {
       const body = request.postDataJSON();
