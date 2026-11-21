@@ -288,7 +288,7 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(archiveBin.status, 200);
     const archived = await archiveBin.json();
     assert.equal(archived.boards.some(item => String(item._id) === String(board._id)), true);
-    assert.equal(archived.boards.find(item => String(item._id) === String(board._id)).canRestore, false);
+    assert.equal(archived.boards.find(item => String(item._id) === String(board._id)).canRestore, true);
     assert.equal(archived.lists.some(item => String(item._id) === String(secondList._id)), true);
     assert.equal(archived.cards.some(item => String(item._id) === String(card._id)), true);
     const restoreCardTooEarly = await request('/api/kanban/cards/' + card._id + '/restore', {
