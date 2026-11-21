@@ -1,4 +1,4 @@
-import {BrowserRouter,Routes,Route,Navigate} from 'react-router-dom';
+import {BrowserRouter,Routes,Route,Navigate,useLocation} from 'react-router-dom';
 import {useEffect,useState} from 'react';
 import {ThemeProvider} from './context/ThemeContext';
 import {apiFetch} from './lib/api';
@@ -7,8 +7,10 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Success from './pages/auth/Success';
 import Kanban from './pages/dashboard/Kanban';
+import BoardWorkspace from './pages/dashboard/BoardWorkspace';
 
 function Dashboard({user}){
+  const location=useLocation();
   const logout=async()=>{
     try{await apiFetch('/api/auth/logout',{method:'POST'});}catch(_error){}
     window.location.assign('/login');
@@ -16,12 +18,13 @@ function Dashboard({user}){
   const now=new Date();
   const date=`${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
   const time=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+  const inBoard=location.pathname.startsWith('/dashboard/boards/');
   return <div>
-    <div style={{background:'#1e293b',color:'#fff',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+    <header style={{background:'#1e293b',color:'#fff',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <b>📋 {user.role} Dashboard | {user.fullName}</b>
       <span>📅 {date} | 🕒 {time} <button onClick={logout} style={{marginLeft:12,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>Logout</button></span>
-    </div>
-    <Kanban/>
+    </header>
+    {inBoard?<BoardWorkspace/>:<Kanban/>}
   </div>
 }
 
@@ -47,6 +50,6 @@ export default function App(){
     <Route path="/login" element={<Login/>}/>
     <Route path="/register" element={<Register/>}/>
     <Route path="/success" element={<Success/>}/>
-    <Route path="/dashboard" element={<Protected/>}/>
+    <Route path="/dashboard/*" element={<Protected/>}/>
   </Routes></BrowserRouter></ThemeProvider>
 }
