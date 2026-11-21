@@ -1,13 +1,12 @@
 import {useState,useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
+import {apiFetch} from '../../lib/api';
 export default function Kanban(){
   const navigate=useNavigate();
   const [boards,setBoards]=useState([]);const [title,setTitle]=useState('');const [msg,setMsg]=useState('');const [loading,setLoading]=useState(true);
-  const API=import.meta.env.VITE_API_URL||'http://localhost:5000';
-  const token=localStorage.getItem('token');
-  const load=async()=>{try{const r=await fetch(`${API}/api/kanban/boards`,{headers:{Authorization:`Bearer ${token}`}});const d=await r.json();if(r.status===401){localStorage.removeItem('token');localStorage.removeItem('user');navigate('/login');return;}if(!r.ok)throw new Error(d.message||'Unable to load boards.');if(d.success)setBoards(d.boards);setMsg('');}catch(e){setMsg(e.message||'Unable to load boards.');}finally{setLoading(false);}};
+  const load=async()=>{try{const r=await apiFetch('/api/kanban/boards');const d=await r.json();if(r.status===401){navigate('/login');return;}if(!r.ok)throw new Error(d.message||'Unable to load boards.');if(d.success)setBoards(d.boards);setMsg('');}catch(e){setMsg(e.message||'Unable to load boards.');}finally{setLoading(false);}};
   useEffect(()=>{load()},[]);
-  const create=async()=>{if(!title.trim())return;try{const r=await fetch(`${API}/api/kanban/boards`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({title})});const d=await r.json();if(r.status===401){localStorage.removeItem('token');localStorage.removeItem('user');navigate('/login');return;}if(!r.ok)throw new Error(d.message||'Unable to create board.');setMsg(d.message);setTitle('');await load();}catch(e){setMsg(e.message||'Unable to create board.');}};
+  const create=async()=>{if(!title.trim())return;try{const r=await apiFetch('/api/kanban/boards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title})});const d=await r.json();if(r.status===401){localStorage.removeItem('token');localStorage.removeItem('user');navigate('/login');return;}if(!r.ok)throw new Error(d.message||'Unable to create board.');setMsg(d.message);setTitle('');await load();}catch(e){setMsg(e.message||'Unable to create board.');}};
   return <div style={{padding:24}}>
     <h2>📌 My Boards</h2>
     {msg&&<p style={{background:'#dcfce7',padding:10,borderRadius:8}}>{msg}</p>}
