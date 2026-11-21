@@ -67,3 +67,34 @@ test('authentication middleware rejects missing, revoked and unauthorized sessio
     User.findById = original;
   }
 });
+
+test('cookie sessions require a matching CSRF token on state-changing requests', async () => {
+  const original = User.findById;
+  try {
+    User.findById = () => ({ select: async () => ({
+      _id: '507f1f77bcf86cd799439011', role: 'Member', isActive: true, tokenVersion: 0
+    }) });
+    let req = {
+      method: 'POST',
+      headers: { cookie: 'access_token=' + token() + '; csrf_token=csrf-value' }
+    };
+    let res = response();
+    let nextCalled = false;
+    await authenticate()(req, res, () => { nextCalled = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(nextCalled, false);
+
+    req = {
+      method: 'POST',
+      headers: {
+        cookie: 'access_token=' + token() + '; csrf_token=csrf-value',
+        'x-csrf-token': 'csrf-value'
+      }
+    };
+    res = response();
+    await authenticate()(req, res, () => { nextCalled = true; });
+    assert.equal(nextCalled, true);
+  } finally {
+    User.findById = original;
+  }
+});
