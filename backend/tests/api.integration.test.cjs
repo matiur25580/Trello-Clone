@@ -10,6 +10,9 @@ process.env.CORS_ORIGIN = 'http://localhost:5173';
 process.env.COOKIE_SAME_SITE = 'lax';
 process.env.COOKIE_SECURE = 'false';
 process.env.TRUST_PROXY_HOPS = '0';
+process.env.SMTP_HOST = 'localhost';
+process.env.SMTP_USER = 'integration-test';
+process.env.SMTP_PASS = 'integration-test';
 
 const otpByEmail = new Map();
 const originalCreateTransport = nodemailer.createTransport;
