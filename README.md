@@ -59,6 +59,7 @@ Copy `backend/.env.example` to `backend/.env` and set:
 - `OTP_SECRET`: a different random secret with at least 32 characters.
 - `CORS_ORIGIN`: exact comma-separated frontend origins (required for credentialed browser requests).
 - `COOKIE_SAME_SITE`: use `lax` locally; use `none` with HTTPS when frontend and API are on different sites. Secure is enabled automatically for `none` and production.
+- `TRUST_PROXY_HOPS`: set to the exact trusted reverse-proxy hop count (commonly `1` behind a single managed proxy); keep `0` for direct/local access so client IP rate limits cannot trust spoofed forwarding headers.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optional `SMTP_FROM`.
 
 Generate independent secrets, for example:
