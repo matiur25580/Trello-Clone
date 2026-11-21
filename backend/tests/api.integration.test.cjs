@@ -274,6 +274,36 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(archiveBoard.status, 200);
     const visibleBoards = await request('/api/kanban/boards', { cookies: alice.cookies });
     assert.equal((await visibleBoards.json()).boards.some(item => String(item._id) === String(board._id)), false);
+    const archiveBin = await request('/api/kanban/archive', { cookies: alice.cookies });
+    assert.equal(archiveBin.status, 200);
+    const archived = await archiveBin.json();
+    assert.equal(archived.boards.some(item => String(item._id) === String(board._id)), true);
+    assert.equal(archived.lists.some(item => String(item._id) === String(secondList._id)), true);
+    assert.equal(archived.cards.some(item => String(item._id) === String(card._id)), true);
+    const restoreCardTooEarly = await request('/api/kanban/cards/' + card._id + '/restore', {
+      method: 'POST', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(restoreCardTooEarly.status, 404);
+    const restoreBoard = await request('/api/kanban/boards/' + board._id + '/restore', {
+      method: 'POST', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(restoreBoard.status, 200);
+    const restoreList = await request('/api/kanban/lists/' + secondList._id + '/restore', {
+      method: 'POST', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(restoreList.status, 200);
+    const restoreCard = await request('/api/kanban/cards/' + card._id + '/restore', {
+      method: 'POST', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(restoreCard.status, 200);
+    const restoredCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: alice.cookies });
+    assert.equal((await restoredCards.json()).cards.some(item => String(item._id) === String(card._id)), true);
+    const bobArchive = await request('/api/kanban/archive', { cookies: bob.cookies });
+    assert.deepEqual(await bobArchive.json(), { success: true, boards: [], lists: [], cards: [] });
+    const forbiddenRestore = await request('/api/kanban/boards/' + board._id + '/restore', {
+      method: 'POST', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(forbiddenRestore.status, 404);
 
     const logout = await request('/api/auth/logout', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf
