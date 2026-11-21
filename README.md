@@ -25,7 +25,7 @@ A Trello-inspired Kanban application built with React, Vite, Express and MongoDB
 | Database | MongoDB, Mongoose |
 | Authentication | bcryptjs, JWT HttpOnly cookies, CSRF token, HMAC OTP |
 | Email | Nodemailer with configurable SMTP |
-| CI | GitHub Actions, npm clean installs, backend syntax/unit checks, frontend build |
+| CI | GitHub Actions, npm clean installs, dependency audits, backend integration tests, frontend ESLint and production build |
 
 ## Repository layout
 
