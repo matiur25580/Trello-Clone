@@ -1,12 +1,12 @@
 import {useState} from 'react';import {useNavigate,Link} from 'react-router-dom';
+import {apiFetch} from '../../lib/api';
 export default function Login(){
   const nav=useNavigate();const [f,setF]=useState({emailOrId:'',password:''});const [msg,setMsg]=useState('');const [show,setShow]=useState(false);
-  const API=import.meta.env.VITE_API_URL||'http://localhost:5000';
   const doLogin=async()=>{
     try{
-      const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(f)});
+      const r=await apiFetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(f)});
       const d=await r.json(); setMsg(d.message||'Unable to sign in.');
-      if(d.success){localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));nav('/dashboard');}
+      if(d.success){nav('/dashboard');}
     }catch(_error){setMsg('Unable to reach the API. Please try again.');}
   };
   const inp={width:'100%',padding:12,margin:'6px 0',borderRadius:8,border:'1px solid #cbd5e1',fontSize:14,boxSizing:'border-box'};

@@ -6,8 +6,9 @@ A Trello-inspired Kanban application built with React, Vite, Express and MongoDB
 
 - Email OTP registration with five-minute expiry, HMAC-hashed codes, one-time consumption and bounded verification attempts.
 - Public registration creates **Member** accounts only. Privileged roles are not selectable by users.
-- Short-lived JWT access tokens. Every protected request reloads the account from MongoDB and checks account status and token version.
-- Logout revokes existing access tokens by incrementing the account token version.
+- Short-lived JWT access tokens are stored in HttpOnly cookies, not browser local storage. Every protected request reloads the account from MongoDB and checks account status and token version.
+- State-changing cookie-authenticated requests require a matching CSRF cookie/header pair; logout revokes existing sessions by incrementing the account token version.
+- Authentication limits are stored atomically in MongoDB and shared across API instances; OTP and login routes have additional per-account limits.
 - Board ownership and explicit membership checks for all board/list/card reads and writes.
 - Server-side field allowlists and same-board validation for card updates and moves.
 - MongoDB-backed persistence. The API refuses to start if required database or signing secrets are missing.
@@ -20,7 +21,7 @@ A Trello-inspired Kanban application built with React, Vite, Express and MongoDB
 | Frontend | React, Vite, React Router |
 | API | Node.js 20+, Express |
 | Database | MongoDB, Mongoose |
-| Authentication | bcryptjs, JWT, HMAC OTP |
+| Authentication | bcryptjs, JWT HttpOnly cookies, CSRF token, HMAC OTP |
 | Email | Nodemailer with configurable SMTP |
 | CI | GitHub Actions, npm clean installs, backend syntax/unit checks, frontend build |
 
@@ -34,8 +35,9 @@ backend/
   server.cjs            # Canonical API entry point
   routes/auth.js        # OTP registration, login and logout
   routes/kanban.js      # Board/list/card API
-  middleware/auth.js    # Database-backed authentication
-  models/               # User, OTP, board, list and card schemas
+  middleware/auth.js    # Database-backed cookie authentication and CSRF
+  middleware/rateLimit.js # Shared atomic rate limiting
+  models/               # User, OTP, rate-limit, board, list and card schemas
   scripts/create-admin.cjs
 ```
 
@@ -55,7 +57,9 @@ Copy `backend/.env.example` to `backend/.env` and set:
 - `MONGO_URI`: MongoDB connection string.
 - `JWT_SECRET`: random secret with at least 32 characters.
 - `OTP_SECRET`: a different random secret with at least 32 characters.
-- `CORS_ORIGIN`: exact comma-separated frontend origins.
+- `CORS_ORIGIN`: exact comma-separated frontend origins (required for credentialed browser requests).
+- `COOKIE_SAME_SITE`: use `lax` locally; use `none` with HTTPS when frontend and API are on different sites. Secure is enabled automatically for `none` and production.
+- `TRUST_PROXY_HOPS`: set to the exact trusted reverse-proxy hop count (commonly `1` behind a single managed proxy); keep `0` for direct/local access so client IP rate limits cannot trust spoofed forwarding headers.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optional `SMTP_FROM`.
 
 Generate independent secrets, for example:
@@ -107,7 +111,8 @@ npm run dev
 |---|---|---|
 | POST | `/api/auth/send-otp` | Public, rate limited |
 | POST | `/api/auth/register` | Public, verified OTP; Member role only |
-| POST | `/api/auth/login` | Public, rate limited |
+| POST | `/api/auth/login` | Public, rate limited; sets HttpOnly session and CSRF cookies |
+| GET | `/api/auth/me` | Authenticated; returns current server-verified user |
 | POST | `/api/auth/logout` | Authenticated |
 | GET | `/api/kanban/boards` | Authenticated; own/member boards only |
 | POST | `/api/kanban/boards` | Authenticated |
@@ -126,14 +131,14 @@ npm test
 node --check server.cjs
 ```
 
-CI also runs frontend dependency installation and a production build.
+CI also runs clean dependency installs, low-severity-or-higher dependency audit gates, backend unit/syntax checks and a frontend production build.
 
 ## Security notes and remaining work
 
 This repository is not yet a production-certified service. Current limitations include:
 
-- Access tokens are held by the frontend in browser local storage; a future hardening pass should migrate to secure HttpOnly cookies with CSRF protection.
-- The current authentication rate limiter is process-local. Multi-instance production deployments need a shared store.
+- Cookie sessions require HTTPS in production. If frontend and API are on different sites, configure `COOKIE_SAME_SITE=none`; browsers may still restrict third-party cookies, so a same-site custom domain is preferable.
+- Workspace member invitation/management, granular board roles, refresh-token rotation, password recovery, MFA and audit history are not implemented yet.
 - Workspace member invitation/management, granular board roles, refresh-token rotation, password recovery, MFA and audit history are not implemented yet.
 - Integration tests against a real MongoDB replica set and end-to-end tests for registration, login, board isolation and card operations are still required.
 - SMTP delivery, production database permissions, backups, TLS, monitoring and deployment configuration must be validated in the target environment.

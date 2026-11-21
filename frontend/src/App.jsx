@@ -1,19 +1,18 @@
 import {BrowserRouter,Routes,Route,Navigate} from 'react-router-dom';
+import {useEffect,useState} from 'react';
 import {ThemeProvider} from './context/ThemeContext';
+import {apiFetch} from './lib/api';
 import Landing from './pages/auth/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Success from './pages/auth/Success';
 import Kanban from './pages/dashboard/Kanban';
 
-function Dashboard(){
-  const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\/$/,'');
+function Dashboard({user}){
   const logout=async()=>{
-    const token=localStorage.getItem('token');
-    try{if(token) await fetch(`${API}/api/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});}catch(_error){}
-    localStorage.removeItem('token');localStorage.removeItem('user');location.href='/login';
+    try{await apiFetch('/api/auth/logout',{method:'POST'});}catch(_error){}
+    window.location.assign('/login');
   };
-  const user=JSON.parse(localStorage.getItem('user')||'{}');
   const now=new Date();
   const date=`${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
   const time=now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
@@ -25,13 +24,29 @@ function Dashboard(){
     <Kanban/>
   </div>
 }
-function Protected({children}){return localStorage.getItem('token')?children:<Navigate to="/login"/>;}
+
+function Protected(){
+  const [user,setUser]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    let active=true;
+    apiFetch('/api/auth/me')
+      .then(async response=>{if(!response.ok)throw new Error('Session expired');return response.json();})
+      .then(data=>{if(active&&data.success)setUser(data.user);})
+      .catch(()=>{if(active)setUser(null);})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[]);
+  if(loading)return <div style={{padding:32,textAlign:'center'}}>Checking your session…</div>;
+  return user?<Dashboard user={user}/>:<Navigate to="/login" replace/>;
+}
+
 export default function App(){
   return <ThemeProvider><BrowserRouter><Routes>
     <Route path="/" element={<Landing/>}/>
     <Route path="/login" element={<Login/>}/>
     <Route path="/register" element={<Register/>}/>
     <Route path="/success" element={<Success/>}/>
-    <Route path="/dashboard" element={<Protected><Dashboard/></Protected>}/>
+    <Route path="/dashboard" element={<Protected/>}/>
   </Routes></BrowserRouter></ThemeProvider>
 }

@@ -1,4 +1,5 @@
 import {useState} from 'react';import {useNavigate,Link} from 'react-router-dom';
+import {apiFetch} from '../../lib/api';
 export default function Register(){
   const nav=useNavigate();
   const [f,setF]=useState({fullName:'',email:'',role:'Member',password:'',confirm:''});
@@ -9,17 +10,17 @@ export default function Register(){
     if(f.password!==f.confirm) return setMsg('Password mismatch');
     setLoading(true);setMsg('Sending OTP... please wait (Render may take 50s first time)');
     try{
-      const r=await fetch(`${API}/api/auth/send-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:f.email})});
+      const r=await apiFetch('/api/auth/send-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:f.email})});
       const d=await r.json(); setMsg(d.message);
-      if(d.success) setStep(2); else setMsg(d.message+' | API:'+API);
-    }catch(e){setMsg('Network error. API:'+API+' | '+e.message)}
+      if(d.success) setStep(2); else setMsg(d.message);
+    }catch(e){setMsg('Network error. Please try again.')}
     setLoading(false);
   };
   const doReg=async()=>{
     const otpVal=otp.join('');if(otpVal.length!==6) return setMsg('Enter 6-digit OTP');
     setLoading(true);
     try{
-      const r=await fetch(`${API}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,otp:otpVal})});
+      const r=await apiFetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,otp:otpVal})});
       const d=await r.json(); setMsg(d.message);
       if(d.success) nav('/success',{state:d});
     }catch(e){setMsg('Network error: '+e.message)}
@@ -29,12 +30,13 @@ export default function Register(){
   return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0f172a',padding:20}}>
     <div style={{background:'#1e293b',padding:32,borderRadius:16,width:'100%',maxWidth:440,boxShadow:'0 10px 40px rgba(0,0,0,.4)'}}>
       <h2 style={{color:'#fff',textAlign:'center',marginTop:0}}>Create Account</h2>
-      <p style={{color:'#64748b',textAlign:'center',fontSize:12,marginTop:-8}}>API: {API}</p>
+      
       {msg&&<p style={{background:msg.includes('success')||msg.includes('sent')?'#14532d':'#7f1d1d',color:'#fff',padding:10,borderRadius:8,textAlign:'center',fontSize:13}}>{msg}</p>}
       {step===1?<>
         <input placeholder="Full Name" style={inp} value={f.fullName} onChange={e=>setF({...f,fullName:e.target.value})}/>
         <input placeholder="Email" style={inp} value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
         <p style={{color:"#94a3b8",fontSize:13}}>New accounts are created with the Member role. Workspace administrators can grant additional access.</p>
+        <p style={{color:"#94a3b8",fontSize:12}}>Use at least 12 characters for your password.</p>
         <input type="password" placeholder="Password" style={inp} value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
         <input type="password" placeholder="Confirm Password" style={inp} value={f.confirm} onChange={e=>setF({...f,confirm:e.target.value})}/>
         <button onClick={sendOtp} disabled={loading} style={{...inp,background:loading?'#64748b':'#2563eb',color:'#fff',fontWeight:'bold',cursor:'pointer',border:'none',fontSize:16}}>{loading?'SENDING...':'SUBMIT'}</button>

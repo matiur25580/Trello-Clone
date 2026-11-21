@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const { sendOTP } = require('../utils/sendEmail');
+const authenticate = require('../middleware/auth');
+const createRateLimiter = require('../middleware/rateLimit');
 
 const router = express.Router();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -15,13 +17,40 @@ function hashOtp(email, otp) {
   return crypto.createHmac('sha256', secret).update(email.toLowerCase() + ':' + otp).digest('hex');
 }
 
-function safeEqual(left, right) {
+function safeEqualHex(left, right) {
   const a = Buffer.from(left, 'hex');
   const b = Buffer.from(right, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-router.post('/send-otp', async (req, res, next) => {
+function accountRateKey(req) {
+  const identity = String(req.body?.email || req.body?.emailOrId || '').trim().toLowerCase();
+  return crypto.createHash('sha256').update((req.ip || 'unknown') + ':' + identity).digest('hex');
+}
+
+const otpRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 3, keyGenerator: accountRateKey });
+const loginRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 8, keyGenerator: accountRateKey });
+
+function cookieOptions() {
+  const production = process.env.NODE_ENV === 'production';
+  const sameSite = process.env.COOKIE_SAME_SITE || (production ? 'none' : 'lax');
+  return {
+    httpOnly: true,
+    secure: production || sameSite === 'none' || process.env.COOKIE_SECURE === 'true',
+    sameSite,
+    path: '/',
+    maxAge: 15 * 60 * 1000
+  };
+}
+
+function clearSessionCookies(res) {
+  const options = cookieOptions();
+  delete options.maxAge;
+  res.clearCookie('access_token', options);
+  res.clearCookie('csrf_token', { ...options, httpOnly: false });
+}
+
+router.post('/send-otp', otpRateLimit, async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!emailPattern.test(email) || email.length > 254) return res.status(400).json({ message: 'Enter a valid email address.' });
@@ -48,15 +77,13 @@ router.post('/register', async (req, res, next) => {
   if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
       !emailPattern.test(email) || email.length > 254 ||
       typeof password !== 'string' || password.length < 12 || password.length > 128 ||
-      typeof otp !== 'string' || !/^\d{6}$/.test(otp) ||
-      typeof contact !== 'string' || contact.length > 30 ||
-      typeof dob !== 'string' || dob.length > 10) {
+      typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
     return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
   }
 
   try {
     const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
-    if (!otpRecord || otpRecord.attempts >= 5 || !safeEqual(hashOtp(email, otp), otpRecord.otpHash)) {
+    if (!otpRecord || otpRecord.attempts >= 5 || !safeEqualHex(hashOtp(email, otp), otpRecord.otpHash)) {
       if (otpRecord && otpRecord.attempts < 5) {
         await Otp.updateOne({ _id: otpRecord._id, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } });
       }
@@ -71,7 +98,7 @@ router.post('/register', async (req, res, next) => {
     let created;
     await session.withTransaction(async () => {
       const record = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } }).session(session);
-      if (!record || record.attempts >= 5 || !safeEqual(hashOtp(email, otp), record.otpHash)) {
+      if (!record || record.attempts >= 5 || !safeEqualHex(hashOtp(email, otp), record.otpHash)) {
         const error = new Error('Invalid or expired verification code.');
         error.status = 400;
         throw error;
@@ -100,7 +127,7 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginRateLimit, async (req, res, next) => {
   try {
     const emailOrId = String(req.body?.emailOrId || '').trim();
     const password = req.body?.password;
@@ -115,8 +142,11 @@ router.post('/login', async (req, res, next) => {
       subject: user._id.toString(), expiresIn: '15m', algorithm: 'HS256',
       issuer: 'trello-clone-api', audience: 'trello-clone-web'
     });
+    const csrfToken = crypto.randomBytes(32).toString('base64url');
+    res.cookie('access_token', token, cookieOptions());
+    res.cookie('csrf_token', csrfToken, { ...cookieOptions(), httpOnly: false });
     return res.json({
-      success: true, message: 'Login successful.', token,
+      success: true, message: 'Login successful.', csrfToken,
       user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, uniqueId: user.uniqueId }
     });
   } catch (error) {
@@ -124,9 +154,33 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-router.post('/logout', require('../middleware/auth')(), async (req, res, next) => {
+function requestCookie(req, name) {
+  const prefix = name + '=';
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const value = part.trim();
+    if (value.startsWith(prefix)) {
+      try { return decodeURIComponent(value.slice(prefix.length)); } catch (_error) { return ''; }
+    }
+  }
+  return '';
+}
+
+router.get('/me', authenticate(), (req, res) => {
+  let csrfToken = requestCookie(req, 'csrf_token');
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(32).toString('base64url');
+    res.cookie('csrf_token', csrfToken, { ...cookieOptions(), httpOnly: false });
+  }
+  return res.json({
+    success: true, csrfToken,
+    user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId }
+  });
+});
+
+router.post('/logout', authenticate(), async (req, res, next) => {
   try {
     await User.updateOne({ _id: req.user._id }, { $inc: { tokenVersion: 1 } });
+    clearSessionCookies(res);
     return res.json({ success: true, message: 'Signed out.' });
   } catch (error) {
     return next(error);
