@@ -1,7 +1,7 @@
 import {useState} from 'react';import {useNavigate,Link} from 'react-router-dom';
 export default function Register(){
   const nav=useNavigate();
-  const [f,setF]=useState({fullName:'',email:'',contact:'',dob:'',role:'',password:'',confirm:''});
+  const [f,setF]=useState({fullName:'',email:'',contact:'',dob:'',role:'Member',password:'',confirm:''});
   const [otp,setOtp]=useState(['','','','','','']);const [step,setStep]=useState(1);const [msg,setMsg]=useState('');const [loading,setLoading]=useState(false);
   const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\/$/,'');
   const sendOtp=async()=>{
@@ -36,7 +36,7 @@ export default function Register(){
         <input placeholder="Email" style={inp} value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
         <input placeholder="Contact Number" style={inp} value={f.contact} onChange={e=>setF({...f,contact:e.target.value})}/>
         <input placeholder="DOB DDMMYYYY (e.g. 29081998)" style={inp} value={f.dob} onChange={e=>setF({...f,dob:e.target.value})}/>
-        <select style={{...inp,background:'#5b5b5b'}} value={f.role} onChange={e=>setF({...f,role:e.target.value})}><option value="">Select your role</option><option>Admin</option><option>Manager</option><option>Member</option><option>Viewer</option></select>
+        <p style={{color:"#94a3b8",fontSize:13}}>New accounts are created with the Member role. Workspace administrators can grant additional access.</p>
         <input type="password" placeholder="Password" style={inp} value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
         <input type="password" placeholder="Confirm Password" style={inp} value={f.confirm} onChange={e=>setF({...f,confirm:e.target.value})}/>
         <button onClick={sendOtp} disabled={loading} style={{...inp,background:loading?'#64748b':'#2563eb',color:'#fff',fontWeight:'bold',cursor:'pointer',border:'none',fontSize:16}}>{loading?'SENDING...':'SUBMIT'}</button>
