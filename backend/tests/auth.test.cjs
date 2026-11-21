@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const authenticate = require('../middleware/auth');
+const authRouter = require('../routes/auth');
 
 const secret = 'test-only-secret-that-is-at-least-32-characters-long';
 process.env.JWT_SECRET = secret;
@@ -24,6 +25,38 @@ function response() {
     json(body) { this.body = body; return this; }
   };
 }
+
+test('registration validation accepts the frontend payload and normalizes email', () => {
+  const result = authRouter.validateRegistration({
+    fullName: '  Ada Lovelace  ',
+    email: ' ADA@EXAMPLE.COM ',
+    password: 'a-long-test-password',
+    confirm: 'a-long-test-password',
+    role: 'Admin',
+    otp: '123456'
+  });
+  assert.deepEqual(result, {
+    fullName: 'Ada Lovelace',
+    email: 'ada@example.com',
+    password: 'a-long-test-password',
+    otp: '123456'
+  });
+});
+
+test('registration validation rejects missing or malformed required fields', () => {
+  assert.equal(authRouter.validateRegistration({
+    fullName: 'Ada Lovelace',
+    email: 'ada@example.com',
+    password: 'a-long-test-password',
+    otp: '12345'
+  }), null);
+  assert.equal(authRouter.validateRegistration({
+    fullName: 'A',
+    email: 'not-an-email',
+    password: 'short',
+    otp: '123456'
+  }), null);
+});
 
 test('authentication middleware rejects missing, revoked and unauthorized sessions', async () => {
   const original = User.findById;
