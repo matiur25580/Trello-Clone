@@ -19,9 +19,14 @@ async function accessibleBoard(boardId, userId) {
   });
 }
 
+async function ownedBoard(boardId, userId, archived = false) {
+  if (!isId(boardId)) return null;
+  return Board.findOne({ _id: boardId, owner: userId, isArchived: archived });
+}
+
 router.delete('/boards/:id', async (req, res, next) => {
   try {
-    const board = await accessibleBoard(req.params.id, req.user._id);
+    const board = await ownedBoard(req.params.id, req.user._id);
     if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
     board.isArchived = true;
     await board.save();
@@ -205,7 +210,7 @@ router.delete('/cards/:id', async (req, res, next) => {
 router.get('/archive', async (req, res, next) => {
   try {
     const boards = await Board.find({ $or: [{ owner: req.user._id }, { members: req.user._id }] })
-      .select('_id title isArchived').lean();
+       .select('_id title isArchived owner').lean();
     const boardIds = boards.map((board) => board._id);
     const [archivedLists, archivedCards] = await Promise.all([
       List.find({ board: { $in: boardIds }, isArchived: true }).select('_id title board').lean(),
@@ -213,7 +218,10 @@ router.get('/archive', async (req, res, next) => {
     ]);
     return res.json({
       success: true,
-      boards: boards.filter((board) => board.isArchived),
+      boards: boards.filter((board) => board.isArchived).map((board) => ({
+        _id: board._id, title: board.title, isArchived: true,
+        canRestore: String(board.owner) === String(req.user._id)
+      })),
       lists: archivedLists,
       cards: archivedCards
     });
@@ -223,10 +231,7 @@ router.get('/archive', async (req, res, next) => {
 router.post('/boards/:id/restore', async (req, res, next) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'Board not found.' });
-    const board = await Board.findOne({
-      _id: req.params.id, isArchived: true,
-      $or: [{ owner: req.user._id }, { members: req.user._id }]
-    });
+    const board = await ownedBoard(req.params.id, req.user._id, true);
     if (!board) return res.status(404).json({ success: false, message: 'Archived board not found.' });
     board.isArchived = false;
     await board.save();
