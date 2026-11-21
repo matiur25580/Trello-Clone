@@ -17,10 +17,37 @@ function hashOtp(email, otp) {
   return crypto.createHmac('sha256', secret).update(email.toLowerCase() + ':' + otp).digest('hex');
 }
 
-function safeEqual(left, right) {
+function safeEqualHex(left, right) {
   const a = Buffer.from(left, 'hex');
   const b = Buffer.from(right, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function accountRateKey(req) {
+  const identity = String(req.body?.email || req.body?.emailOrId || '').trim().toLowerCase();
+  return crypto.createHash('sha256').update((req.ip || 'unknown') + ':' + identity).digest('hex');
+}
+
+const otpRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 3, keyGenerator: accountRateKey });
+const loginRateLimit = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 8, keyGenerator: accountRateKey });
+
+function cookieOptions() {
+  const production = process.env.NODE_ENV === 'production';
+  const sameSite = process.env.COOKIE_SAME_SITE || (production ? 'none' : 'lax');
+  return {
+    httpOnly: true,
+    secure: production || sameSite === 'none' || process.env.COOKIE_SECURE === 'true',
+    sameSite,
+    path: '/',
+    maxAge: 15 * 60 * 1000
+  };
+}
+
+function clearSessionCookies(res) {
+  const options = cookieOptions();
+  delete options.maxAge;
+  res.clearCookie('access_token', options);
+  res.clearCookie('csrf_token', { ...options, httpOnly: false });
 }
 
 router.post('/send-otp', otpRateLimit, async (req, res, next) => {
@@ -50,13 +77,13 @@ router.post('/register', async (req, res, next) => {
   if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
       !emailPattern.test(email) || email.length > 254 ||
       typeof password !== 'string' || password.length < 12 || password.length > 128 ||
-      typeof otp !== 'string' !/^\d{6}$/.test(otp) ||
+      typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
     return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
   }
 
   try {
     const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
-    if (!otpRecord || otpRecord.attempts >= 5 || !safeEqual(hashOtp(email, otp), otpRecord.otpHash)) {
+    if (!otpRecord || otpRecord.attempts >= 5 || !safeEqualHex(hashOtp(email, otp), otpRecord.otpHash)) {
       if (otpRecord && otpRecord.attempts < 5) {
         await Otp.updateOne({ _id: otpRecord._id, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } });
       }
@@ -71,7 +98,7 @@ router.post('/register', async (req, res, next) => {
     let created;
     await session.withTransaction(async () => {
       const record = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } }).session(session);
-      if (!record || record.attempts >= 5 || !safeEqual(hashOtp(email, otp), record.otpHash)) {
+      if (!record || record.attempts >= 5 || !safeEqualHex(hashOtp(email, otp), record.otpHash)) {
         const error = new Error('Invalid or expired verification code.');
         error.status = 400;
         throw error;
@@ -127,7 +154,10 @@ router.post('/login', loginRateLimit, async (req, res, next) => {
   }
 });
 
-router.get('/me', authenticate(), (req, res) => res.json({ success: true, user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId } }));
+router.get('/me', authenticate(), (req, res) => res.json({
+  success: true,
+  user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId }
+}));
 
 router.post('/logout', authenticate(), async (req, res, next) => {
   try {
