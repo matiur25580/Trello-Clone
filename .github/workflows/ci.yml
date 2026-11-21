@@ -36,19 +36,13 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - name: Apply compatible backend security updates
-        working-directory: backend
-        run: npm audit fix --package-lock-only --ignore-scripts --no-fund || true
       - run: npm ci
         working-directory: backend
-      - name: Export updated backend lockfile
-        working-directory: backend
-        run: node -e "console.log('UPDATED_LOCK_BASE64=' + require('node:fs').readFileSync('package-lock.json').toString('base64'))"
       - name: Report backend dependency advisories
         working-directory: backend
         run: |
           npm audit --json > npm-audit.json || true
-          node -e "const a=require('./npm-audit.json'); for (const [name, item] of Object.entries(a.vulnerabilities || {})) console.log(name + ': ' + item.severity + '; direct=' + item.isDirect + '; fix=' + JSON.stringify(item.fixAvailable))"
+          node -e "const a=require('./npm-audit.json'); for (const [name, item] of Object.entries(a.vulnerabilities || {})) console.log(JSON.stringify({name, severity:item.severity, range:item.range, via:item.via, fixAvailable:item.fixAvailable}))"
       - run: node --check server.cjs
         working-directory: backend
       - run: node --check routes/auth.js && node --check routes/kanban.js && node --check middleware/auth.js && node --check models/User.js && node --check models/Otp.js && node --check models/Board.js && node --check models/List.js && node --check models/Card.js
