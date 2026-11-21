@@ -146,7 +146,7 @@ router.post('/login', loginRateLimit, async (req, res, next) => {
     res.cookie('access_token', token, cookieOptions());
     res.cookie('csrf_token', csrfToken, { ...cookieOptions(), httpOnly: false });
     return res.json({
-      success: true, message: 'Login successful.',
+      success: true, message: 'Login successful.', csrfToken,
       user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, uniqueId: user.uniqueId }
     });
   } catch (error) {
@@ -154,10 +154,28 @@ router.post('/login', loginRateLimit, async (req, res, next) => {
   }
 });
 
-router.get('/me', authenticate(), (req, res) => res.json({
-  success: true,
-  user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId }
-}));
+function requestCookie(req, name) {
+  const prefix = name + '=';
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const value = part.trim();
+    if (value.startsWith(prefix)) {
+      try { return decodeURIComponent(value.slice(prefix.length)); } catch (_error) { return ''; }
+    }
+  }
+  return '';
+}
+
+router.get('/me', authenticate(), (req, res) => {
+  let csrfToken = requestCookie(req, 'csrf_token');
+  if (!csrfToken) {
+    csrfToken = crypto.randomBytes(32).toString('base64url');
+    res.cookie('csrf_token', csrfToken, { ...cookieOptions(), httpOnly: false });
+  }
+  return res.json({
+    success: true, csrfToken,
+    user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId }
+  });
+});
 
 router.post('/logout', authenticate(), async (req, res, next) => {
   try {
