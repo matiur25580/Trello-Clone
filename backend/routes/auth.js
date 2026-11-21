@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Otp = require('../models/Otp');
 const { sendOTP } = require('../utils/sendEmail');
+const authenticate = require('../middleware/auth');
+const createRateLimiter = require('../middleware/rateLimit');
 
 const router = express.Router();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,7 +23,7 @@ function safeEqual(left, right) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-router.post('/send-otp', async (req, res, next) => {
+router.post('/send-otp', otpRateLimit, async (req, res, next) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (!emailPattern.test(email) || email.length > 254) return res.status(400).json({ message: 'Enter a valid email address.' });
@@ -98,7 +100,7 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginRateLimit, async (req, res, next) => {
   try {
     const emailOrId = String(req.body?.emailOrId || '').trim();
     const password = req.body?.password;
@@ -113,8 +115,11 @@ router.post('/login', async (req, res, next) => {
       subject: user._id.toString(), expiresIn: '15m', algorithm: 'HS256',
       issuer: 'trello-clone-api', audience: 'trello-clone-web'
     });
+    const csrfToken = crypto.randomBytes(32).toString('base64url');
+    res.cookie('access_token', token, cookieOptions());
+    res.cookie('csrf_token', csrfToken, { ...cookieOptions(), httpOnly: false });
     return res.json({
-      success: true, message: 'Login successful.', token,
+      success: true, message: 'Login successful.',
       user: { id: user._id, fullName: user.fullName, email: user.email, role: user.role, uniqueId: user.uniqueId }
     });
   } catch (error) {
@@ -122,9 +127,12 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-router.post('/logout', require('../middleware/auth')(), async (req, res, next) => {
+router.get('/me', authenticate(), (req, res) => res.json({ success: true, user: { id: req.user._id, fullName: req.user.fullName, email: req.user.email, role: req.user.role, uniqueId: req.user.uniqueId } }));
+
+router.post('/logout', authenticate(), async (req, res, next) => {
   try {
     await User.updateOne({ _id: req.user._id }, { $inc: { tokenVersion: 1 } });
+    clearSessionCookies(res);
     return res.json({ success: true, message: 'Signed out.' });
   } catch (error) {
     return next(error);
