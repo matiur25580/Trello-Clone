@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
+const Board = require('../models/Board');
 
 process.env.JWT_SECRET = 'integration-test-jwt-secret-at-least-32-characters';
 process.env.OTP_SECRET = 'integration-test-otp-secret-at-least-32-characters';
@@ -219,6 +220,12 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const forbiddenCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
     assert.equal(forbiddenCards.status, 404);
 
+    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bob.account._id } });
+    const bobBoardArchiveBeforeOwner = await request('/api/kanban/boards/' + board._id, {
+      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(bobBoardArchiveBeforeOwner.status, 404);
+
     const bobBoardResponse = await request('/api/kanban/boards', {
       method: 'POST', cookies: bob.cookies, csrf: bob.csrf,
       body: { title: 'Bob private board' }
@@ -278,6 +285,7 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(archiveBin.status, 200);
     const archived = await archiveBin.json();
     assert.equal(archived.boards.some(item => String(item._id) === String(board._id)), true);
+    assert.equal(archived.boards.find(item => String(item._id) === String(board._id)).canRestore, false);
     assert.equal(archived.lists.some(item => String(item._id) === String(secondList._id)), true);
     assert.equal(archived.cards.some(item => String(item._id) === String(card._id)), true);
     const restoreCardTooEarly = await request('/api/kanban/cards/' + card._id + '/restore', {
@@ -299,7 +307,11 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const restoredCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: alice.cookies });
     assert.equal((await restoredCards.json()).cards.some(item => String(item._id) === String(card._id)), true);
     const bobArchive = await request('/api/kanban/archive', { cookies: bob.cookies });
-    assert.deepEqual(await bobArchive.json(), { success: true, boards: [], lists: [], cards: [] });
+    const bobArchiveData = await bobArchive.json();
+    assert.equal(bobArchiveData.boards.some(item => String(item._id) === String(board._id)), true);
+    assert.equal(bobArchiveData.boards.find(item => String(item._id) === String(board._id)).canRestore, false);
+    assert.equal(bobArchiveData.lists.some(item => String(item._id) === String(secondList._id)), true);
+    assert.equal(bobArchiveData.cards.some(item => String(item._id) === String(card._id)), true);
     const forbiddenRestore = await request('/api/kanban/boards/' + board._id + '/restore', {
       method: 'POST', cookies: bob.cookies, csrf: bob.csrf
     });
