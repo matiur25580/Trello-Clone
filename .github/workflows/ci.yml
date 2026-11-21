@@ -36,13 +36,8 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        working-directory: backend
       - run: npm ci
         working-directory: backend
-      - name: Export generated lockfile for repository update
-        working-directory: backend
-        run: node -e "console.log('GENERATED_LOCK_BASE64=' + require('node:fs').readFileSync('package-lock.json').toString('base64'))"
       - run: node --check server.cjs
         working-directory: backend
       - run: node --check routes/auth.js && node --check routes/kanban.js && node --check middleware/auth.js && node --check models/User.js && node --check models/Otp.js && node --check models/Board.js && node --check models/List.js && node --check models/Card.js
