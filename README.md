@@ -116,11 +116,14 @@ npm run dev
 | POST | `/api/auth/login` | Public, rate limited; sets HttpOnly session and CSRF cookies |
 | GET | `/api/auth/me` | Authenticated; returns current server-verified user |
 | POST | `/api/auth/logout` | Authenticated |
-| GET | `/api/kanban/boards` | Authenticated; own/member boards only |
-| POST | `/api/kanban/boards` | Authenticated |
+| GET | `/api/kanban/boards` | Authenticated; active own/member boards only |
+| POST/PUT | `/api/kanban/boards`, `/api/kanban/boards/:id` | Authenticated; board owner/member for updates |
+| DELETE/POST restore | `/api/kanban/boards/:id`, `/api/kanban/boards/:id/restore` | Board owner only |
+| GET | `/api/kanban/archive` | Authenticated; archived records from accessible boards only |
 | GET/POST | `/api/kanban/boards/:id/lists`, `/api/kanban/lists` | Board owner/member |
+| PUT/DELETE/POST restore | `/api/kanban/lists/:id` | Board owner/member |
 | GET/POST | `/api/kanban/lists/:id/cards`, `/api/kanban/cards` | Board owner/member |
-| PUT/DELETE | `/api/kanban/cards/:id` | Board owner/member |
+| PUT/DELETE/POST restore | `/api/kanban/cards/:id` | Board owner/member |
 
 ## Validation
 
@@ -133,7 +136,7 @@ npm test
 node --check server.cjs
 ```
 
-CI also runs clean dependency installs, low-severity-or-higher dependency audit gates, backend unit/syntax checks and a frontend production build.
+CI also runs clean dependency installs, low-severity-or-higher dependency audit gates, backend integration tests and syntax checks, frontend ESLint and a production build.
 
 ## Security notes and remaining work
 
@@ -141,8 +144,7 @@ This repository is not yet a production-certified service. Current limitations i
 
 - Cookie sessions require HTTPS in production. If frontend and API are on different sites, configure `COOKIE_SAME_SITE=none`; browsers may still restrict third-party cookies, so a same-site custom domain is preferable.
 - Workspace member invitation/management, granular board roles, refresh-token rotation, password recovery, MFA and audit history are not implemented yet.
-- Workspace member invitation/management, granular board roles, refresh-token rotation, password recovery, MFA and audit history are not implemented yet.
-- Integration tests against a real MongoDB replica set and end-to-end tests for registration, login, board isolation and card operations are still required.
+- API integration tests run against an ephemeral MongoDB replica set in CI. Browser-level end-to-end tests are not yet configured.
 - SMTP delivery, production database permissions, backups, TLS, monitoring and deployment configuration must be validated in the target environment.
 
 Do not use real sensitive information until these controls and the deployment environment have been independently verified.
