@@ -9,10 +9,8 @@ export async function apiFetch(path, options = {}) {
   }
   const response = await fetch(API + path, { ...options, headers, credentials: 'include' });
   if (path === '/api/auth/login' || path === '/api/auth/me') {
-    try {
-      const payload = await response.clone().json();
-      if (payload.csrfToken) csrfToken = payload.csrfToken;
-    } catch (_error) {}
+    const payload = await response.clone().json().catch(() => null);
+    if (payload?.csrfToken) csrfToken = payload.csrfToken;
   }
   if (path === '/api/auth/logout' && response.ok) csrfToken = null;
   return response;
