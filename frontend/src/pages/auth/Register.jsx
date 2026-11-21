@@ -36,6 +36,7 @@ export default function Register(){
         <input placeholder="Full Name" style={inp} value={f.fullName} onChange={e=>setF({...f,fullName:e.target.value})}/>
         <input placeholder="Email" style={inp} value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
         <p style={{color:"#94a3b8",fontSize:13}}>New accounts are created with the Member role. Workspace administrators can grant additional access.</p>
+        <p style={{color:"#94a3b8",fontSize:12}}>Use at least 12 characters for your password.</p>
         <input type="password" placeholder="Password" style={inp} value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
         <input type="password" placeholder="Confirm Password" style={inp} value={f.confirm} onChange={e=>setF({...f,confirm:e.target.value})}/>
         <button onClick={sendOtp} disabled={loading} style={{...inp,background:loading?'#64748b':'#2563eb',color:'#fff',fontWeight:'bold',cursor:'pointer',border:'none',fontSize:16}}>{loading?'SENDING...':'SUBMIT'}</button>
