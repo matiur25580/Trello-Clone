@@ -38,12 +38,31 @@ router.post('/boards', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.put('/boards/:id', async (req, res, next) => {
+  try {
+    const board = await accessibleBoard(req.params.id, req.user._id);
+    if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
+    const body = req.body || {};
+    if (!Object.hasOwn(body, 'title') && !Object.hasOwn(body, 'description')) {
+      return res.status(400).json({ success: false, message: 'At least one board field is required.' });
+    }
+    if (Object.hasOwn(body, 'title')) {
+      const title = cleanText(body.title, 100);
+      if (!title) return res.status(400).json({ success: false, message: 'Board title cannot be empty.' });
+      board.title = title;
+    }
+    if (Object.hasOwn(body, 'description')) board.description = cleanText(body.description, 500);
+    await board.save();
+    return res.json({ success: true, message: 'Board updated.', board });
+  } catch (error) { return next(error); }
+});
+
 router.get('/boards/:id/lists', async (req, res, next) => {
   try {
     const board = await accessibleBoard(req.params.id, req.user._id);
     if (!board) return res.status(404).json({ success: false, message: 'Board not found.' });
     const lists = await List.find({ board: board._id }).sort({ position: 1 }).lean();
-    return res.json({ success: true, lists });
+    return res.json({ success: true, board: { _id: board._id, title: board.title, description: board.description, color: board.color }, lists });
   } catch (error) { return next(error); }
 });
 
@@ -57,6 +76,19 @@ router.post('/lists', async (req, res, next) => {
     const position = await List.countDocuments({ board: board._id });
     const list = await List.create({ title, board: board._id, position });
     return res.status(201).json({ success: true, message: 'List created.', list });
+  } catch (error) { return next(error); }
+});
+
+router.put('/lists/:id', async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'List not found.' });
+    const list = await List.findById(req.params.id);
+    if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'List not found.' });
+    const title = cleanText(req.body?.title, 100);
+    if (!title) return res.status(400).json({ success: false, message: 'List title cannot be empty.' });
+    list.title = title;
+    await list.save();
+    return res.json({ success: true, message: 'List updated.', list });
   } catch (error) { return next(error); }
 });
 
