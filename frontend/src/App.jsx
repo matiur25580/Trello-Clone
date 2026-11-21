@@ -11,9 +11,20 @@ import BoardWorkspace from './pages/dashboard/BoardWorkspace';
 
 function Dashboard({user}){
   const location=useLocation();
+  const [logoutError,setLogoutError]=useState('');
+  const [loggingOut,setLoggingOut]=useState(false);
   const logout=async()=>{
-    try{await apiFetch('/api/auth/logout',{method:'POST'});}catch(_error){}
-    window.location.assign('/login');
+    if(loggingOut)return;
+    setLoggingOut(true);setLogoutError('');
+    try{
+      const response=await apiFetch('/api/auth/logout',{method:'POST'});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.message||'Unable to sign out. Please retry.');
+      window.location.assign('/login');
+    }catch(error){
+      setLogoutError(error.message==='Failed to fetch'?'Unable to reach the API. Your session may still be active.':error.message);
+      setLoggingOut(false);
+    }
   };
   const now=new Date();
   const date=`${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
@@ -22,8 +33,9 @@ function Dashboard({user}){
   return <div>
     <header style={{background:'#1e293b',color:'#fff',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
       <b>📋 {user.role} Dashboard | {user.fullName}</b>
-      <span>📅 {date} | 🕒 {time} <button onClick={logout} style={{marginLeft:12,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>Logout</button></span>
+      <span>📅 {date} | 🕒 {time} <button type="button" disabled={loggingOut} onClick={logout} style={{marginLeft:12,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>{loggingOut?'Signing out…':'Logout'}</button></span>
     </header>
+    {logoutError&&<p role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:10,textAlign:'center'}}>{logoutError}</p>}
     {inBoard?<BoardWorkspace/>:<Kanban/>}
   </div>
 }

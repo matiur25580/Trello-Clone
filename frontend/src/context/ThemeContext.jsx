@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Context and provider intentionally share this module. */
 import {createContext,useState,useEffect} from 'react';
 export const ThemeContext=createContext();
 export function ThemeProvider({children}){

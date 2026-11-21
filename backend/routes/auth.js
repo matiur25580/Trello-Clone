@@ -59,12 +59,18 @@ router.post('/send-otp', otpRateLimit, async (req, res, next) => {
 
     const otp = crypto.randomInt(100000, 1000000).toString();
     const otpHash = hashOtp(email, otp);
-    await Otp.findOneAndUpdate(
+    const otpRecord = await Otp.findOneAndUpdate(
       { email, purpose: 'register' },
       { $set: { otpHash, attempts: 0, expiresAt: new Date(Date.now() + 5 * 60 * 1000) } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    await sendOTP(email, otp);
+    try {
+      await sendOTP(email, otp);
+    } catch (deliveryError) {
+      // Remove only this request's code; do not delete a newer concurrent resend.
+      await Otp.deleteOne({ _id: otpRecord._id, otpHash });
+      throw deliveryError;
+    }
     return res.status(202).json({ success: true, message: 'If the address is eligible, a verification code will be sent.' });
   } catch (error) {
     return next(error);
