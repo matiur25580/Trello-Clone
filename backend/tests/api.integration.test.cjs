@@ -182,6 +182,22 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
       body: { dueDate: 'not-a-date' }
     });
     assert.equal(invalidDueDate.status, 400);
+    const saveChecklist = await request('/api/kanban/cards/' + card._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { checklist: [{ text: 'Review requirements', done: true }, { text: 'Ship safely', done: false }] }
+    });
+    assert.equal(saveChecklist.status, 200);
+    assert.equal((await saveChecklist.json()).card.checklist.length, 2);
+    const invalidChecklist = await request('/api/kanban/cards/' + card._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { checklist: [{ text: '   ', done: 'yes' }] }
+    });
+    assert.equal(invalidChecklist.status, 400);
+    const oversizedChecklist = await request('/api/kanban/cards/' + card._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { checklist: Array.from({ length: 51 }, (_, index) => ({ text: 'Item ' + index })) }
+    });
+    assert.equal(oversizedChecklist.status, 400);
 
     const bob = await createAccount('bob@example.test', 'Bob Example');
     const bobBoards = await request('/api/kanban/boards', { cookies: bob.cookies });
@@ -226,6 +242,35 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
       method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
     });
     assert.equal(crossUserArchive.status, 404);
+    const forbiddenListArchive = await request('/api/kanban/lists/' + secondList._id, {
+      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(forbiddenListArchive.status, 404);
+    const forbiddenBoardArchive = await request('/api/kanban/boards/' + board._id, {
+      method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(forbiddenBoardArchive.status, 404);
+
+    const archiveCard = await request('/api/kanban/cards/' + card._id, {
+      method: 'DELETE', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(archiveCard.status, 200);
+    const cardsAfterArchive = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: alice.cookies });
+    assert.deepEqual((await cardsAfterArchive.json()).cards, []);
+    const archiveList = await request('/api/kanban/lists/' + secondList._id, {
+      method: 'DELETE', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(archiveList.status, 200);
+    const archivedListAccess = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: alice.cookies });
+    assert.equal(archivedListAccess.status, 404);
+    const visibleLists = await request('/api/kanban/boards/' + board._id + '/lists', { cookies: alice.cookies });
+    assert.equal((await visibleLists.json()).lists.some(item => String(item._id) === String(secondList._id)), false);
+    const archiveBoard = await request('/api/kanban/boards/' + board._id, {
+      method: 'DELETE', cookies: alice.cookies, csrf: alice.csrf
+    });
+    assert.equal(archiveBoard.status, 200);
+    const visibleBoards = await request('/api/kanban/boards', { cookies: alice.cookies });
+    assert.equal((await visibleBoards.json()).boards.some(item => String(item._id) === String(board._id)), false);
 
     const logout = await request('/api/auth/logout', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf
