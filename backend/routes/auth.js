@@ -7,7 +7,19 @@ const Otp = require('../models/Otp');
 const { sendOTP } = require('../utils/sendEmail');
 
 const router = express.Router();
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailPattern = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+
+function validateRegistration(input = {}) {
+  const fullName = input.fullName;
+  const email = String(input.email || '').trim().toLowerCase();
+  const password = input.password;
+  const otp = input.otp;
+  if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
+      !emailPattern.test(email) || email.length > 254 ||
+      typeof password !== 'string' || password.length < 12 || password.length > 128 ||
+      typeof otp !== 'string' || !/^\\d{6}$/.test(otp)) return null;
+  return { fullName: fullName.trim(), email, password, otp };
+}
 
 function hashOtp(email, otp) {
   const secret = process.env.OTP_SECRET;
@@ -43,16 +55,11 @@ router.post('/send-otp', async (req, res, next) => {
 });
 
 router.post('/register', async (req, res, next) => {
-  const { fullName, email: rawEmail, password, otp } = req.body || {};
-  const email = String(rawEmail || '').trim().toLowerCase();
-  if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
-      !emailPattern.test(email) || email.length > 254 ||
-      typeof password !== 'string' || password.length < 12 || password.length > 128 ||
-      typeof otp !== 'string' || !/^\d{6}$/.test(otp) ||
-      typeof contact !== 'string' || contact.length > 30 ||
-      typeof dob !== 'string' || dob.length > 10) {
-    return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
+  const registration = validateRegistration(req.body || {});
+  if (!registration) {
+    return res.status(400).json({ message: 'Please provide a valid name, email, password (12–128 characters), and 6-digit verification code.' });
   }
+  const { fullName, email, password, otp } = registration;
 
   try {
     const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
@@ -87,7 +94,7 @@ router.post('/register', async (req, res, next) => {
       const uniqueId = 'TM-' + crypto.randomBytes(8).toString('hex').toUpperCase();
       const passwordHash = await bcrypt.hash(password, 12);
       [created] = await User.create([{
-        fullName: fullName.trim(), email, role: 'Member',
+        fullName, email, role: 'Member',
         uniqueId, password: passwordHash, isVerified: true
       }], { session });
     });
@@ -133,4 +140,5 @@ router.post('/logout', require('../middleware/auth')(), async (req, res, next) =
   }
 });
 
+router.validateRegistration = validateRegistration;
 module.exports = router;
