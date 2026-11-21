@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
+const User = require('../models/User');
 const Board = require('../models/Board');
 
 process.env.JWT_SECRET = 'integration-test-jwt-secret-at-least-32-characters';
@@ -220,7 +221,9 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const forbiddenCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
     assert.equal(forbiddenCards.status, 404);
 
-    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bob.account._id } });
+    const bobUser = await User.findOne({ email: 'bob@example.test' });
+    assert.ok(bobUser);
+    await Board.updateOne({ _id: board._id }, { $addToSet: { members: bobUser._id } });
     const bobBoardArchiveBeforeOwner = await request('/api/kanban/boards/' + board._id, {
       method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
     });
