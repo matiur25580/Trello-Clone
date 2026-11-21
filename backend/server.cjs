@@ -1,91 +1,87 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const { randomUUID } = require("node:crypto");
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 dotenv.config();
 
 const app = express();
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000,http://localhost:5173")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const port = Number(process.env.PORT) || 5000;
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',').map((value) => value.trim()).filter(Boolean);
 
+app.disable('x-powered-by');
 app.use(cors({
   origin(origin, callback) {
-    // Allow non-browser clients (curl, health checks) and configured browser origins.
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error("Origin is not allowed by CORS."));
+    return callback(new Error('Origin is not allowed by CORS.'));
   },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600
 }));
-app.use(express.json({ limit: "16kb" }));
+app.use(express.json({ limit: '16kb', strict: true }));
 
-// Demo storage only: data is reset whenever this process restarts.
-const boards = [
-  { _id: "default-1", title: "⏳ Pending", cards: [] },
-  { _id: "default-2", title: "🚀 Backlog", cards: [] },
-  { _id: "default-3", title: "💻 In Progress", cards: [] },
-  { _id: "default-4", title: "🔍 Code Review", cards: [] },
-  { _id: "default-5", title: "✅ Done", cards: [] },
-];
-
-app.get("/", (_req, res) => {
-  res.json({ name: "Trello Clone API", status: "ok" });
-});
-
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "healthy" });
-});
-
-app.get("/api/boards", (_req, res) => {
-  res.json(boards);
-});
-
-app.post("/api/boards", (req, res) => {
-  const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
-  if (!title || title.length > 100) {
-    return res.status(400).json({ error: "Board title is required (max 100 characters)." });
+const authWindows = new Map();
+function authRateLimit(req, res, next) {
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const current = authWindows.get(key);
+  if (!current || current.resetAt <= now) {
+    authWindows.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return next();
   }
-
-  const board = {
-    _id: randomUUID(),
-    title,
-    description: typeof req.body.description === "string"
-      ? req.body.description.trim().slice(0, 500)
-      : "",
-    cards: [],
-  };
-  boards.push(board);
-  return res.status(201).json({ message: "Board created successfully.", board });
-});
-
-app.post("/api/cards", (req, res) => {
-  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
-    return res.status(400).json({ error: "A card object is required." });
+  if (current.count >= 10) {
+    res.set('Retry-After', String(Math.ceil((current.resetAt - now) / 1000)));
+    return res.status(429).json({ message: 'Too many authentication attempts. Try again later.' });
   }
+  current.count += 1;
+  return next();
+}
+const cleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of authWindows) if (value.resetAt <= now) authWindows.delete(key);
+}, 60 * 1000);
+cleanup.unref();
 
-  // The current frontend contract is not yet connected to persistent card storage.
-  return res.status(202).json({
-    message: "Card payload accepted by the demo API; persistent card storage is not configured.",
-    data: req.body,
-  });
+app.get('/', (_req, res) => res.json({ name: 'Trello Clone API', status: 'ok' }));
+app.get('/health', (_req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  return res.status(ready ? 200 : 503).json({ status: ready ? 'healthy' : 'unavailable', database: ready ? 'connected' : 'disconnected' });
 });
 
+app.use('/api/auth', authRateLimit, require('./routes/auth'));
+app.use('/api/kanban', require('./routes/kanban'));
+
+app.use((req, res) => res.status(404).json({ message: 'Route not found.' }));
 app.use((error, _req, res, _next) => {
-  if (error.message === "Origin is not allowed by CORS.") {
-    return res.status(403).json({ error: "Origin is not allowed." });
-  }
-  if (error instanceof SyntaxError && error.status === 400) {
-    return res.status(400).json({ error: "Invalid JSON request body." });
-  }
-  if (error.status === 413) {
-    return res.status(413).json({ error: "Request body is too large." });
-  }
-  console.error("API error:", error.message);
-  return res.status(500).json({ error: "An unexpected server error occurred." });
+  if (error.message === 'Origin is not allowed by CORS.') return res.status(403).json({ message: 'Origin is not allowed.' });
+  if (error instanceof SyntaxError && error.status === 400) return res.status(400).json({ message: 'Invalid JSON request body.' });
+  if (error.status === 413) return res.status(413).json({ message: 'Request body is too large.' });
+  if (error.name === 'ValidationError' || error.name === 'CastError') return res.status(400).json({ message: 'Invalid request data.' });
+  if (error.code === 11000) return res.status(409).json({ message: 'A record with those details already exists.' });
+  const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 500 ? error.status : 500;
+  if (status === 500) console.error('API error:', error.message);
+  return res.status(status).json({ message: status === 500 ? 'An unexpected server error occurred.' : error.message });
 });
 
-const PORT = Number(process.env.PORT) || 5000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Trello demo API listening on port ${PORT}`);
+async function start() {
+  if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required; the API will not start without persistent storage.');
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters.');
+  if (!process.env.OTP_SECRET || process.env.OTP_SECRET.length < 32) throw new Error('OTP_SECRET must contain at least 32 characters.');
+  await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+  const httpServer = app.listen(port, '0.0.0.0', () => console.log('Trello API listening on port ' + port));
+  const shutdown = async () => {
+    httpServer.close(async () => {
+      await mongoose.disconnect();
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+start().catch((error) => {
+  console.error('Startup failed:', error.message);
+  process.exit(1);
 });
