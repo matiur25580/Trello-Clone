@@ -7,6 +7,12 @@ import Success from './pages/auth/Success';
 import Kanban from './pages/dashboard/Kanban';
 
 function Dashboard(){
+  const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\\/$/,'');
+  const logout=async()=>{
+    const token=localStorage.getItem('token');
+    try{if(token) await fetch(`${API}/api/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${token}`}});}catch(_error){}
+    localStorage.removeItem('token');localStorage.removeItem('user');location.href='/login';
+  };
   const user=JSON.parse(localStorage.getItem('user')||'{}');
   const now=new Date();
   const date=`${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
@@ -14,7 +20,7 @@ function Dashboard(){
   return <div>
     <div style={{background:'#1e293b',color:'#fff',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
       <b>📋 {user.role} Dashboard | {user.fullName}</b>
-      <span>📅 {date} | 🕒 {time} <button onClick={()=>{localStorage.clear();location.href='/';}} style={{marginLeft:12,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>Logout</button></span>
+      <span>📅 {date} | 🕒 {time} <button onClick={logout} style={{marginLeft:12,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>Logout</button></span>
     </div>
     <Kanban/>
   </div>
