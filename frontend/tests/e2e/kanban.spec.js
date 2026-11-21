@@ -97,7 +97,7 @@ test('successful sign-in loads the authenticated board dashboard', async ({ page
   await installApiMocks(page);
   await page.goto('/login');
   await page.getByLabel('Email or unique ID').fill(user.email);
-  await page.getByLabel('Password').fill('correct-horse-battery');
+  await page.getByRole('textbox', { name: 'Password' }).fill('correct-horse-battery');
   await page.getByRole('button', { name: 'Login' }).click();
 
   await expect(page.getByText('Member Dashboard | Browser Test User')).toBeVisible();
@@ -116,7 +116,7 @@ test('board, list, card and checklist workflows work in the browser', async ({ p
   await installApiMocks(page);
   await page.goto('/login');
   await page.getByLabel('Email or unique ID').fill(user.email);
-  await page.getByLabel('Password').fill('correct-horse-battery');
+  await page.getByRole('textbox', { name: 'Password' }).fill('correct-horse-battery');
   await page.getByRole('button', { name: 'Login' }).click();
 
   await expect(page.getByRole('heading', { name: 'My Boards' })).toBeVisible();
