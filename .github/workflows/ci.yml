@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**', 'fix/**', 'test/**']
   pull_request:
     branches: [main]
 permissions:
@@ -27,6 +27,9 @@ jobs:
       - name: Audit frontend dependencies
         working-directory: frontend
         run: npm audit --audit-level=low
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
       - run: npm run build
         working-directory: frontend
   backend:
