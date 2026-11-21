@@ -1,7 +1,7 @@
 import {useState} from 'react';import {useNavigate,Link} from 'react-router-dom';
 export default function Register(){
   const nav=useNavigate();
-  const [f,setF]=useState({fullName:'',email:'',contact:'',dob:'',role:'Member',password:'',confirm:''});
+  const [f,setF]=useState({fullName:'',email:'',role:'Member',password:'',confirm:''});
   const [otp,setOtp]=useState(['','','','','','']);const [step,setStep]=useState(1);const [msg,setMsg]=useState('');const [loading,setLoading]=useState(false);
   const API=(import.meta.env.VITE_API_URL||'http://localhost:5000').replace(/\/$/,'');
   const sendOtp=async()=>{
@@ -9,7 +9,7 @@ export default function Register(){
     if(f.password!==f.confirm) return setMsg('Password mismatch');
     setLoading(true);setMsg('Sending OTP... please wait (Render may take 50s first time)');
     try{
-      const r=await fetch(`${API}/api/auth/send-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:f.email,role:f.role,purpose:'register'})});
+      const r=await fetch(`${API}/api/auth/send-otp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:f.email})});
       const d=await r.json(); setMsg(d.message);
       if(d.success) setStep(2); else setMsg(d.message+' | API:'+API);
     }catch(e){setMsg('Network error. API:'+API+' | '+e.message)}
@@ -34,8 +34,6 @@ export default function Register(){
       {step===1?<>
         <input placeholder="Full Name" style={inp} value={f.fullName} onChange={e=>setF({...f,fullName:e.target.value})}/>
         <input placeholder="Email" style={inp} value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
-        <input placeholder="Contact Number" style={inp} value={f.contact} onChange={e=>setF({...f,contact:e.target.value})}/>
-        <input placeholder="DOB DDMMYYYY (e.g. 29081998)" style={inp} value={f.dob} onChange={e=>setF({...f,dob:e.target.value})}/>
         <p style={{color:"#94a3b8",fontSize:13}}>New accounts are created with the Member role. Workspace administrators can grant additional access.</p>
         <input type="password" placeholder="Password" style={inp} value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
         <input type="password" placeholder="Confirm Password" style={inp} value={f.confirm} onChange={e=>setF({...f,confirm:e.target.value})}/>
