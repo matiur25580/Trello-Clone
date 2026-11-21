@@ -45,3 +45,7 @@ jobs:
         run: node -e "console.log('GENERATED_LOCK_BASE64=' + require('node:fs').readFileSync('package-lock.json').toString('base64'))"
       - run: node --check server.cjs
         working-directory: backend
+      - run: node --check routes/auth.js && node --check routes/kanban.js && node --check middleware/auth.js && node --check models/User.js && node --check models/Otp.js && node --check models/Board.js && node --check models/List.js && node --check models/Card.js
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
