@@ -259,6 +259,20 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const bobUser = await User.findOne({ email: 'bob@example.test' });
     assert.ok(bobUser);
     await Board.updateOne({ _id: board._id }, { $addToSet: { members: bobUser._id } });
+
+    const sharedBoards = await request('/api/kanban/boards', { cookies: bob.cookies });
+    assert.equal((await sharedBoards.json()).boards.some(item => String(item._id) === String(board._id)), true);
+    const sharedLists = await request('/api/kanban/boards/' + board._id + '/lists', { cookies: bob.cookies });
+    assert.equal(sharedLists.status, 200);
+    assert.equal((await sharedLists.json()).lists.some(item => String(item._id) === String(secondList._id)), true);
+    const sharedCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
+    assert.equal(sharedCards.status, 200);
+    assert.equal((await sharedCards.json()).cards.some(item => String(item._id) === String(card._id)), true);
+
+    const memberBoardRename = await request('/api/kanban/boards/' + board._id, {
+      method: 'PUT', cookies: bob.cookies, csrf: bob.csrf, body: { title: 'Shared planning board' }
+    });
+    assert.equal(memberBoardRename.status, 200);
     const memberBoardArchive = await request('/api/kanban/boards/' + board._id, {
       method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
     });
@@ -301,6 +315,21 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
       method: 'POST', cookies: bob.cookies, csrf: bob.csrf
     });
     assert.equal(forbiddenRestore.status, 404);
+
+    await Board.updateOne({ _id: board._id }, { $pull: { members: bobUser._id } });
+    const revokedBoardLists = await request('/api/kanban/boards/' + board._id + '/lists', { cookies: bob.cookies });
+    assert.equal(revokedBoardLists.status, 404);
+    const revokedListCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
+    assert.equal(revokedListCards.status, 404);
+    const revokedArchive = await request('/api/kanban/archive', { cookies: bob.cookies });
+    const revokedArchiveData = await revokedArchive.json();
+    assert.equal(revokedArchiveData.boards.some(item => String(item._id) === String(board._id)), false);
+    assert.equal(revokedArchiveData.lists.some(item => String(item._id) === String(secondList._id)), false);
+    assert.equal(revokedArchiveData.cards.some(item => String(item._id) === String(card._id)), false);
+    const revokedRestore = await request('/api/kanban/lists/' + secondList._id + '/restore', {
+      method: 'POST', cookies: bob.cookies, csrf: bob.csrf
+    });
+    assert.equal(revokedRestore.status, 404);
 
     const restoreCardTooEarly = await request('/api/kanban/cards/' + card._id + '/restore', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf
