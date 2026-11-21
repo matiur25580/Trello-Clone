@@ -120,9 +120,11 @@ npm run dev
 | POST/PUT | `/api/kanban/boards`, `/api/kanban/boards/:id` | Authenticated; board owner/member for updates |
 | DELETE/POST restore | `/api/kanban/boards/:id`, `/api/kanban/boards/:id/restore` | Board owner only |
 | GET | `/api/kanban/archive` | Authenticated; archived records from accessible boards only |
-| GET/POST | `/api/kanban/boards/:id/lists`, `/api/kanban/lists` | Board owner/member |
+| GET | `/api/kanban/boards/:id/lists` | Board owner/member |
+| POST | `/api/kanban/lists` | Board owner/member |
 | PUT/DELETE/POST restore | `/api/kanban/lists/:id` | Board owner/member |
-| GET/POST | `/api/kanban/lists/:id/cards`, `/api/kanban/cards` | Board owner/member |
+| GET | `/api/kanban/lists/:id/cards` | Board owner/member |
+| POST | `/api/kanban/cards` | Board owner/member |
 | PUT/DELETE/POST restore | `/api/kanban/cards/:id` | Board owner/member |
 
 ## Validation
