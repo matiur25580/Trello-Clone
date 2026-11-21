@@ -11,7 +11,7 @@ A Trello-inspired Kanban application built with React, Vite, Express and MongoDB
 - Authentication limits are stored atomically in MongoDB and shared across API instances; OTP and login routes have additional per-account limits.
 - Board ownership and explicit membership checks for all board/list/card reads and writes.
 - Server-side field allowlists and same-board validation for card updates and moves.
-- Soft-archive workflows for boards, lists and cards; archived records are retained rather than destructively deleted.
+- Soft-archive workflows for boards, lists and cards, with a permission-scoped archive bin and ordered restore actions.
 - Card editing for title, description, priority, due date and up to 50 validated checklist items.
 - MongoDB-backed persistence. The API refuses to start if required database or signing secrets are missing.
 - CORS origin allowlist, JSON body limit, authentication rate limit and generic server error responses.
