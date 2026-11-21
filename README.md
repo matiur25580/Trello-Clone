@@ -1,98 +1,145 @@
-# Kanban Project Board
+# Trello Clone — Secure Kanban Workspace
 
-A Trello-inspired Kanban interface built with React and Vite, with an Express backend prototype. The repository is currently a **work in progress** and should be treated as a learning/portfolio prototype rather than a production project-management service.
+A Trello-inspired Kanban application built with React, Vite, Express and MongoDB. The project is under active development; the current API includes authenticated accounts, private boards, board-scoped lists and cards.
 
-## Current product scope
+## Features
 
-- Landing, login and registration screens.
-- Protected dashboard route based on a client-side token check.
-- Kanban workspace UI.
-- Board and card demo endpoints in the current lightweight server.
+- Email OTP registration with five-minute expiry, HMAC-hashed codes, one-time consumption and bounded verification attempts.
+- Public registration creates **Member** accounts only. Privileged roles are not selectable by users.
+- Short-lived JWT access tokens. Every protected request reloads the account from MongoDB and checks account status and token version.
+- Logout revokes existing access tokens by incrementing the account token version.
+- Board ownership and explicit membership checks for all board/list/card reads and writes.
+- Server-side field allowlists and same-board validation for card updates and moves.
+- MongoDB-backed persistence. The API refuses to start if required database or signing secrets are missing.
+- CORS origin allowlist, JSON body limit, authentication rate limit and generic server error responses.
 
-## Technology
+## Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React, Vite, React Router |
-| Backend prototype | Node.js, Express |
-| Data layer experiments | Mongoose dependency and a separate MongoDB-backed `app.js` |
-| HTTP client | Fetch API / Axios dependencies |
+| API | Node.js 20+, Express |
+| Database | MongoDB, Mongoose |
+| Authentication | bcryptjs, JWT, HMAC OTP |
+| Email | Nodemailer with configurable SMTP |
+| CI | GitHub Actions, npm clean installs, backend syntax/unit checks, frontend build |
 
 ## Repository layout
 
 ```text
 frontend/
-  src/
-    context/
-    pages/
-      auth/
-      dashboard/
-    App.jsx
-  package.json
-
+  src/pages/auth/       # Login and registration
+  src/pages/dashboard/  # Board dashboard
 backend/
-  app.js          # Separate MongoDB-backed board experiment
-  server.cjs      # Lightweight in-memory demo server
-  package.json
+  server.cjs            # Canonical API entry point
+  routes/auth.js        # OTP registration, login and logout
+  routes/kanban.js      # Board/list/card API
+  middleware/auth.js    # Database-backed authentication
+  models/               # User, OTP, board, list and card schemas
+  scripts/create-admin.cjs
 ```
 
-## Run the current prototype
+## Local setup
 
 ### Requirements
 
-- Node.js 20+
+- Node.js 20.19 or newer
 - npm
+- MongoDB replica set (MongoDB Atlas is suitable; registration uses a transaction)
+- SMTP credentials for email verification
 
-### 1. Start the backend demo
+### 1. Configure the backend
+
+Copy `backend/.env.example` to `backend/.env` and set:
+
+- `MONGO_URI`: MongoDB connection string.
+- `JWT_SECRET`: random secret with at least 32 characters.
+- `OTP_SECRET`: a different random secret with at least 32 characters.
+- `CORS_ORIGIN`: exact comma-separated frontend origins.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optional `SMTP_FROM`.
+
+Generate independent secrets, for example:
+
+```bash
+openssl rand -base64 48
+```
+
+Install and start the API:
 
 ```bash
 cd backend
-npm install
+npm ci
 npm run dev
 ```
 
-The demo server listens on port `5000`. Its board data is held in memory and resets when the process restarts. Set `CORS_ORIGIN` in `backend/.env` to a comma-separated list of permitted frontend origins if your Vite URL differs from `http://localhost:3000`.
+The API listens on port `5000` by default. `GET /health` reports database connectivity. Startup fails closed if MongoDB or required signing secrets are unavailable.
 
-### 2. Start the frontend
+### 2. Bootstrap the first administrator
 
-In a second terminal:
+Public registration cannot create Admin or Manager accounts. Create the initial administrator once using environment variables:
+
+```bash
+cd backend
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='use-a-unique-password-at-least-16-chars' npm run create-admin
+```
+
+Optionally set `ADMIN_NAME`. The script refuses to create another administrator if one already exists. Run it from a trusted operator environment; do not expose bootstrap credentials in frontend variables or commit them.
+
+### 3. Start the frontend
+
+Create `frontend/.env` if needed:
+
+```bash
+VITE_API_URL=http://localhost:5000
+```
+
+Then:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Vite prints the local frontend URL when the development server starts. The client currently defaults to `http://localhost:5000` for API requests; set `VITE_API_URL` when the client configuration is updated for another environment.
+## API outline
 
-## Important integration gaps
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/api/auth/send-otp` | Public, rate limited |
+| POST | `/api/auth/register` | Public, verified OTP; Member role only |
+| POST | `/api/auth/login` | Public, rate limited |
+| POST | `/api/auth/logout` | Authenticated |
+| GET | `/api/kanban/boards` | Authenticated; own/member boards only |
+| POST | `/api/kanban/boards` | Authenticated |
+| GET/POST | `/api/kanban/boards/:id/lists`, `/api/kanban/lists` | Board owner/member |
+| GET/POST | `/api/kanban/lists/:id/cards`, `/api/kanban/cards` | Board owner/member |
+| PUT/DELETE | `/api/kanban/cards/:id` | Board owner/member |
 
-The current repository contains multiple backend entry points that are not yet unified:
+## Validation
 
-- `backend/server.cjs` is the lightweight in-memory demo server.
-- `backend/app.js` is a separate MongoDB-backed board example and currently uses a hard-coded local MongoDB URL.
-- `backend/package.json` now starts `server.cjs` consistently through both `npm run dev` and `npm start`.
+Backend checks:
 
-The frontend login and registration screens call `/api/auth/login`, `/api/auth/send-otp` and `/api/auth/register`; those endpoints are not implemented by the current `server.cjs` demo server. A client-side token check is not a substitute for server-side authentication or authorization.
+```bash
+cd backend
+npm ci
+npm test
+node --check server.cjs
+```
 
-Do not describe the current version as a fully working MERN authentication system or use it to store real user data.
+CI also runs frontend dependency installation and a production build.
 
-## Priority roadmap
+## Security notes and remaining work
 
-- [ ] Choose one backend entry point and make npm scripts match it.
-- [ ] Implement and test the authentication endpoints consumed by the frontend.
-- [ ] Replace client-only route protection with server-verified sessions.
-- [ ] Persist boards, columns and cards in MongoDB with ownership checks.
-- [ ] Add workspace membership, role-based permissions and input validation.
-- [ ] Add CRUD tests, frontend tests and CI build checks.
-- [ ] Add real screenshots and deployment instructions after the flows work end to end.
+This repository is not yet a production-certified service. Current limitations include:
+
+- Access tokens are held by the frontend in browser local storage; a future hardening pass should migrate to secure HttpOnly cookies with CSRF protection.
+- The current authentication rate limiter is process-local. Multi-instance production deployments need a shared store.
+- Workspace member invitation/management, granular board roles, refresh-token rotation, password recovery, MFA and audit history are not implemented yet.
+- Integration tests against a real MongoDB replica set and end-to-end tests for registration, login, board isolation and card operations are still required.
+- SMTP delivery, production database permissions, backups, TLS, monitoring and deployment configuration must be validated in the target environment.
+
+Do not use real sensitive information until these controls and the deployment environment have been independently verified.
 
 ## Maintainer
 
 **Matiur Rahaman** · [GitHub](https://github.com/matiur25580)
-
-## Live Demo
-
-**Frontend:** [Open Live Demo](https://trello-clone-zeta-three.vercel.app)
-
-> This link points to the deployed frontend. Features that depend on the API, database, email, file storage, or other external services may require the corresponding backend services and environment variables to be configured. Use test data only; this demo is not a production service.
