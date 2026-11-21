@@ -43,7 +43,7 @@ router.post('/send-otp', async (req, res, next) => {
 });
 
 router.post('/register', async (req, res, next) => {
-  const { fullName, email: rawEmail, contact = '', dob = '', password, otp } = req.body || {};
+  const { fullName, email: rawEmail, password, otp } = req.body || {};
   const email = String(rawEmail || '').trim().toLowerCase();
   if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
       !emailPattern.test(email) || email.length > 254 ||
@@ -54,12 +54,16 @@ router.post('/register', async (req, res, next) => {
     return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
   }
 
-  const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
-  if (!otpRecord || otpRecord.attempts >= 5 || !safeEqual(hashOtp(email, otp), otpRecord.otpHash)) {
-    if (otpRecord && otpRecord.attempts < 5) {
-      await Otp.updateOne({ _id: otpRecord._id, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } });
+  try {
+    const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
+    if (!otpRecord || otpRecord.attempts >= 5 || !safeEqual(hashOtp(email, otp), otpRecord.otpHash)) {
+      if (otpRecord && otpRecord.attempts < 5) {
+        await Otp.updateOne({ _id: otpRecord._id, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } });
+      }
+      return res.status(400).json({ message: 'Invalid or expired verification code.' });
     }
-    return res.status(400).json({ message: 'Invalid or expired verification code.' });
+  } catch (error) {
+    return next(error);
   }
 
   const session = await User.startSession();
@@ -83,7 +87,7 @@ router.post('/register', async (req, res, next) => {
       const uniqueId = 'TM-' + crypto.randomBytes(8).toString('hex').toUpperCase();
       const passwordHash = await bcrypt.hash(password, 12);
       [created] = await User.create([{
-        fullName: fullName.trim(), email, contact, dob, role: 'Member',
+        fullName: fullName.trim(), email, role: 'Member',
         uniqueId, password: passwordHash, isVerified: true
       }], { session });
     });
