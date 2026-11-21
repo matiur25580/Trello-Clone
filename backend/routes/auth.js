@@ -54,22 +54,32 @@ router.post('/register', async (req, res, next) => {
     return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
   }
 
+  const otpRecord = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } });
+  if (!otpRecord || otpRecord.attempts >= 5 || !safeEqual(hashOtp(email, otp), otpRecord.otpHash)) {
+    if (otpRecord && otpRecord.attempts < 5) {
+      await Otp.updateOne({ _id: otpRecord._id, attempts: { $lt: 5 } }, { $inc: { attempts: 1 } });
+    }
+    return res.status(400).json({ message: 'Invalid or expired verification code.' });
+  }
+
   const session = await User.startSession();
   try {
     let created;
     await session.withTransaction(async () => {
       const record = await Otp.findOne({ email, purpose: 'register', expiresAt: { $gt: new Date() } }).session(session);
       if (!record || record.attempts >= 5 || !safeEqual(hashOtp(email, otp), record.otpHash)) {
-        if (record && record.attempts < 5) {
-          record.attempts += 1;
-          await record.save({ session });
-        }
         const error = new Error('Invalid or expired verification code.');
         error.status = 400;
         throw error;
       }
-
-      await Otp.deleteOne({ _id: record._id }, { session });
+      const consumed = await Otp.findOneAndDelete({
+        _id: record._id, otpHash: record.otpHash, attempts: { $lt: 5 }, expiresAt: { $gt: new Date() }
+      }, { session });
+      if (!consumed) {
+        const error = new Error('Invalid or expired verification code.');
+        error.status = 400;
+        throw error;
+      }
       const uniqueId = 'TM-' + crypto.randomBytes(8).toString('hex').toUpperCase();
       const passwordHash = await bcrypt.hash(password, 12);
       [created] = await User.create([{
