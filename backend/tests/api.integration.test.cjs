@@ -106,6 +106,16 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     });
     assert.equal(boardResponse.status, 201);
     const board = (await boardResponse.json()).board;
+    const renameBoard = await request('/api/kanban/boards/' + board._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { title: 'Alice planning board', description: 'Quarterly work' }
+    });
+    assert.equal(renameBoard.status, 200);
+    assert.equal((await renameBoard.json()).board.title, 'Alice planning board');
+    const emptyBoardTitle = await request('/api/kanban/boards/' + board._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf, body: { title: '   ' }
+    });
+    assert.equal(emptyBoardTitle.status, 400);
 
     const listResponse = await request('/api/kanban/lists', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf,
@@ -113,6 +123,17 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     });
     assert.equal(listResponse.status, 201);
     const list = (await listResponse.json()).list;
+    const renameList = await request('/api/kanban/lists/' + list._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { title: 'Ready to start' }
+    });
+    assert.equal(renameList.status, 200);
+    assert.equal((await renameList.json()).list.title, 'Ready to start');
+    const emptyListTitle = await request('/api/kanban/lists/' + list._id, {
+      method: 'PUT', cookies: alice.cookies, csrf: alice.csrf,
+      body: { title: '   ' }
+    });
+    assert.equal(emptyListTitle.status, 400);
 
     const cardResponse = await request('/api/kanban/cards', {
       method: 'POST', cookies: alice.cookies, csrf: alice.csrf,
@@ -166,6 +187,14 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     const bobBoards = await request('/api/kanban/boards', { cookies: bob.cookies });
     assert.equal(bobBoards.status, 200);
     assert.deepEqual((await bobBoards.json()).boards, []);
+    const forbiddenBoardRename = await request('/api/kanban/boards/' + board._id, {
+      method: 'PUT', cookies: bob.cookies, csrf: bob.csrf, body: { title: 'Hijacked board' }
+    });
+    assert.equal(forbiddenBoardRename.status, 404);
+    const forbiddenListRename = await request('/api/kanban/lists/' + list._id, {
+      method: 'PUT', cookies: bob.cookies, csrf: bob.csrf, body: { title: 'Hijacked list' }
+    });
+    assert.equal(forbiddenListRename.status, 404);
     const forbiddenList = await request('/api/kanban/boards/' + board._id + '/lists', { cookies: bob.cookies });
     assert.equal(forbiddenList.status, 404);
     const forbiddenCards = await request('/api/kanban/lists/' + secondList._id + '/cards', { cookies: bob.cookies });
