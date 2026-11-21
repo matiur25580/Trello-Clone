@@ -22,6 +22,7 @@ export default function Kanban(){
     finally{setLoading(false);}
   },[navigate]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Route entry starts an async API fetch; state updates follow network responses.
   useEffect(()=>{void load();},[load]);
 
   const create=async event=>{
