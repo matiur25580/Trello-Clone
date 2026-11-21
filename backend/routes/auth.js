@@ -48,9 +48,7 @@ router.post('/register', async (req, res, next) => {
   if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.trim().length > 100 ||
       !emailPattern.test(email) || email.length > 254 ||
       typeof password !== 'string' || password.length < 12 || password.length > 128 ||
-      typeof otp !== 'string' || !/^\d{6}$/.test(otp) ||
-      typeof contact !== 'string' || contact.length > 30 ||
-      typeof dob !== 'string' || dob.length > 10) {
+      typeof otp !== 'string' !/^\d{6}$/.test(otp) ||
     return res.status(400).json({ message: 'Please provide valid registration details. Passwords must be at least 12 characters.' });
   }
 
