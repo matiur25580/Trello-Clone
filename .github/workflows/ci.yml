@@ -39,13 +39,8 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        working-directory: backend
       - run: npm ci
         working-directory: backend
-      - name: Export integration-test lockfile
-        working-directory: backend
-        run: node -e "console.log('INTEGRATION_LOCK=' + require('node:fs').readFileSync('package-lock.json').toString('base64'))"
       - name: Audit backend dependencies
         working-directory: backend
         run: npm audit --audit-level=low
