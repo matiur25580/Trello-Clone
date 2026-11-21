@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
+const Otp = require('../models/Otp');
 
 process.env.JWT_SECRET = 'integration-test-jwt-secret-at-least-32-characters';
 process.env.OTP_SECRET = 'integration-test-otp-secret-at-least-32-characters';
@@ -16,8 +17,10 @@ process.env.SMTP_PASS = 'integration-test';
 
 const otpByEmail = new Map();
 const originalCreateTransport = nodemailer.createTransport;
+let failEmailDelivery = false;
 nodemailer.createTransport = () => ({
   sendMail: async (message) => {
+    if (failEmailDelivery) throw new Error('Simulated SMTP delivery failure');
     const code = String(message.text).match(/\b\d{6}\b/)?.[0];
     if (code) otpByEmail.set(String(message.to).toLowerCase(), code);
     return { messageId: 'integration-test' };
@@ -278,6 +281,15 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(logout.status, 200);
     const revoked = await request('/api/auth/me', { cookies: alice.cookies });
     assert.equal(revoked.status, 401);
+  });
+
+  await t.test('failed email delivery removes the unusable OTP record', async () => {
+    const email = 'delivery-failure@example.test';
+    failEmailDelivery = true;
+    const response = await request('/api/auth/send-otp', { method: 'POST', body: { email } });
+    failEmailDelivery = false;
+    assert.equal(response.status, 500);
+    assert.equal(await Otp.findOne({ email, purpose: 'register' }), null);
   });
 
   await t.test('OTP verification locks after five invalid attempts', async () => {
