@@ -24,32 +24,18 @@ app.use(cors({
     return callback(new Error('Origin is not allowed by CORS.'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  credentials: true,
   maxAge: 600
 }));
 app.use(express.json({ limit: '16kb', strict: true }));
 
-const authWindows = new Map();
-function authRateLimit(req, res, next) {
-  const now = Date.now();
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
-  const current = authWindows.get(key);
-  if (!current || current.resetAt <= now) {
-    authWindows.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
-    return next();
-  }
-  if (current.count >= 10) {
-    res.set('Retry-After', String(Math.ceil((current.resetAt - now) / 1000)));
-    return res.status(429).json({ message: 'Too many authentication attempts. Try again later.' });
-  }
-  current.count += 1;
-  return next();
-}
-const cleanup = setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of authWindows) if (value.resetAt <= now) authWindows.delete(key);
-}, 60 * 1000);
-cleanup.unref();
+const createRateLimiter = require('./middleware/rateLimit');
+const authRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => 'auth-ip:' + (req.ip || req.socket.remoteAddress || 'unknown')
+});
 
 app.get('/', (_req, res) => res.json({ name: 'Trello Clone API', status: 'ok' }));
 app.get('/health', (_req, res) => {
