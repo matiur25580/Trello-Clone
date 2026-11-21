@@ -202,4 +202,54 @@ router.delete('/cards/:id', async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
+router.get('/archive', async (req, res, next) => {
+  try {
+    const boards = await Board.find({ $or: [{ owner: req.user._id }, { members: req.user._id }] })
+      .select('_id title isArchived').lean();
+    const boardIds = boards.map((board) => board._id);
+    const [archivedLists, archivedCards] = await Promise.all([
+      List.find({ board: { $in: boardIds }, isArchived: true }).select('_id title board').lean(),
+      Card.find({ board: { $in: boardIds }, isArchived: true }).select('_id title board list priority dueDate').lean()
+    ]);
+    return res.json({ success: true, boards: boards.filter((board) => board.isArchived), lists: archivedLists, cards: archivedCards });
+  } catch (error) { return next(error); }
+});
+
+router.post('/boards/:id/restore', async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'Board not found.' });
+    const board = await Board.findOne({ _id: req.params.id, isArchived: true, $or: [{ owner: req.user._id }, { members: req.user._id }] });
+    if (!board) return res.status(404).json({ success: false, message: 'Archived board not found.' });
+    board.isArchived = false;
+    await board.save();
+    return res.json({ success: true, message: 'Board restored.', board });
+  } catch (error) { return next(error); }
+});
+
+router.post('/lists/:id/restore', async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'List not found.' });
+    const list = await List.findOne({ _id: req.params.id, isArchived: true });
+    if (!list || !(await accessibleBoard(list.board, req.user._id))) return res.status(404).json({ success: false, message: 'Archived list not found or its board is still archived.' });
+    list.isArchived = false;
+    list.position = await List.countDocuments({ board: list.board, isArchived: false });
+    await list.save();
+    return res.json({ success: true, message: 'List restored.', list });
+  } catch (error) { return next(error); }
+});
+
+router.post('/cards/:id/restore', async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) return res.status(404).json({ success: false, message: 'Card not found.' });
+    const card = await Card.findOne({ _id: req.params.id, isArchived: true });
+    if (!card || !(await accessibleBoard(card.board, req.user._id))) return res.status(404).json({ success: false, message: 'Archived card not found or its board is still archived.' });
+    const list = await List.findOne({ _id: card.list, board: card.board, isArchived: false });
+    if (!list) return res.status(409).json({ success: false, message: 'Restore the card’s list before restoring this card.' });
+    card.isArchived = false;
+    card.position = await Card.countDocuments({ list: list._id, isArchived: false });
+    await card.save();
+    return res.json({ success: true, message: 'Card restored.', card });
+  } catch (error) { return next(error); }
+});
+
 module.exports = router;
