@@ -27,6 +27,7 @@ export default function BoardWorkspace({user}){
   const saveCard=async event=>{event.preventDefault();if(!editingCard||!editingCard.title.trim())return;try{await request('/api/kanban/cards/'+encodeURIComponent(editingCard._id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:editingCard.title,description:editingCard.description,priority:editingCard.priority,dueDate:editingCard.dueDate||null,checklist:editingCard.checklist})});setEditingCard(null);await load();}catch(error){setMessage(error.message);}};
   return <main style={{padding:20,maxWidth:1400,margin:'0 auto'}}>
     <button type="button" onClick={()=>navigate('/dashboard')} style={{border:0,background:'transparent',color:'#2563eb',cursor:'pointer',padding:'8px 0'}}>← All boards</button>
+    {readOnly&&<h2>{board?.title}</h2>}
     {readOnly&&<p role="status" style={{background:'#eff6ff',color:'#1e40af',padding:10,borderRadius:8}}>Viewer access is read-only. You can view this board, lists and cards.</p>}
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:16}}>
       {!readOnly&&<form onSubmit={saveBoard} style={{display:'flex',gap:8,flex:1,minWidth:240}}><input aria-label="Board title" maxLength={100} value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} style={{...field,flex:1,fontSize:20,fontWeight:700}}/><button disabled={saving||!boardTitle.trim()||boardTitle===board?.title} type="submit" style={primary}>Save board</button></form>}
