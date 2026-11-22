@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
@@ -273,6 +274,35 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
       method: 'PUT', cookies: bob.cookies, csrf: bob.csrf, body: { title: 'Shared planning board' }
     });
     assert.equal(memberBoardRename.status, 200);
+
+    const viewerUser = await User.create({
+      fullName: 'Viewer User', email: 'viewer@example.test', password: await bcrypt.hash('viewer-password-123', 10),
+      role: 'Viewer', uniqueId: 'VIEWER-0001', isVerified: true, isActive: true
+    });
+    await Board.updateOne({ _id: board._id }, { $addToSet: { members: viewerUser._id } });
+    const viewerLogin = await request('/api/auth/login', {
+      method: 'POST', body: { emailOrId: 'viewer@example.test', password: 'viewer-password-123' }
+    });
+    assert.equal(viewerLogin.status, 200);
+    const viewerLoginBody = await viewerLogin.json();
+    const viewer = { cookies: cookieHeader(viewerLogin), csrf: viewerLoginBody.csrfToken };
+    const viewerBoardRead = await request('/api/kanban/boards/' + board._id + '/lists', { cookies: viewer.cookies });
+    assert.equal(viewerBoardRead.status, 200);
+    const viewerListCreate = await request('/api/kanban/lists', {
+      method: 'POST', cookies: viewer.cookies, csrf: viewer.csrf,
+      body: { boardId: board._id, title: 'Viewer must not create' }
+    });
+    assert.equal(viewerListCreate.status, 403);
+    const viewerBoardRename = await request('/api/kanban/boards/' + board._id, {
+      method: 'PUT', cookies: viewer.cookies, csrf: viewer.csrf,
+      body: { title: 'Viewer must not rename' }
+    });
+    assert.equal(viewerBoardRename.status, 403);
+    const viewerCardArchive = await request('/api/kanban/cards/' + card._id, {
+      method: 'DELETE', cookies: viewer.cookies, csrf: viewer.csrf
+    });
+    assert.equal(viewerCardArchive.status, 403);
+
     const memberBoardArchive = await request('/api/kanban/boards/' + board._id, {
       method: 'DELETE', cookies: bob.cookies, csrf: bob.csrf
     });

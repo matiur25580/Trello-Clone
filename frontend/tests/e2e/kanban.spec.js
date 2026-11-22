@@ -11,7 +11,7 @@ const boardId = '64b000000000000000000001';
 const listId = '64b000000000000000000002';
 const cardId = '64b000000000000000000003';
 
-async function installApiMocks(page, { authenticated = true } = {}) {
+async function installApiMocks(page, { authenticated = true, role = 'Member' } = {}) {
   const state = {
     authenticated,
     boards: [],
@@ -32,11 +32,11 @@ async function installApiMocks(page, { authenticated = true } = {}) {
 
     if (path === '/api/auth/login' && method === 'POST') {
       state.authenticated = true;
-      return json({ success: true, csrfToken: 'test-csrf-token', user });
+      return json({ success: true, csrfToken: 'test-csrf-token', user: { ...user, role } });
     }
     if (path === '/api/auth/me' && method === 'GET') {
       return state.authenticated
-        ? json({ success: true, csrfToken: 'test-csrf-token', user })
+        ? json({ success: true, csrfToken: 'test-csrf-token', user: { ...user, role } })
         : route.fulfill({ status: 401, contentType: 'application/json', body: '{"message":"Authentication required."}' });
     }
     if (path === '/api/auth/logout' && method === 'POST') {
@@ -111,6 +111,19 @@ test('unauthenticated dashboard access redirects to login', async ({ page }) => 
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('heading', { name: 'Welcome Back' })).toBeVisible();
+});
+
+test('Viewer accounts see board content without mutation controls', async ({ page }) => {
+  const state = await installApiMocks(page, { role: 'Viewer' });
+  state.boards = [{ _id: boardId, title: 'Read-only board', description: 'View only', color: '#2563eb' }];
+  await page.goto('/dashboard');
+  await expect(page.getByText('Viewer access is read-only. You can browse boards but cannot create or change them.')).toBeVisible();
+  await expect(page.getByLabel('New board title')).toHaveCount(0);
+  await page.getByRole('button', { name: /Read-only board/ }).click();
+  await expect(page.getByText('Viewer access is read-only. You can view this board, lists and cards.')).toBeVisible();
+  await expect(page.getByLabel('New list title')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Archive board' })).toHaveCount(0);
+  await expect(page.getByText('Archive list')).toHaveCount(0);
 });
 
 test('board, list, card and checklist workflows work in the browser', async ({ page }) => {

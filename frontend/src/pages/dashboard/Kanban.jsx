@@ -2,7 +2,8 @@ import {useCallback,useEffect,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {apiFetch} from '../../lib/api';
 
-export default function Kanban(){
+export default function Kanban({user}){
+  const readOnly=user?.role==='Viewer';
   const navigate=useNavigate();
   const [boards,setBoards]=useState([]);
   const [title,setTitle]=useState('');
@@ -43,10 +44,11 @@ export default function Kanban(){
   return <main style={{padding:24,maxWidth:1200,margin:'0 auto'}}>
     <h2>📌 My Boards</h2>
     {message&&<p role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:10,borderRadius:8}}>{message}</p>}
-    <form onSubmit={create} style={{display:'flex',gap:8,marginBottom:20}}>
+    {readOnly&&<p role="status" style={{background:'#eff6ff',color:'#1e40af',padding:10,borderRadius:8}}>Viewer access is read-only. You can browse boards but cannot create or change them.</p>}
+    {!readOnly&&<form onSubmit={create} style={{display:'flex',gap:8,marginBottom:20}}>
       <input aria-label="New board title" required maxLength={100} value={title} onChange={event=>setTitle(event.target.value)} placeholder="New board title…" style={{padding:10,borderRadius:8,border:'1px solid #cbd5e1',flex:1,minWidth:0}}/>
       <button disabled={saving||!title.trim()} type="submit" style={{padding:'10px 20px',background:'#2563eb',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontWeight:'bold'}}>{saving?'Creating…':'+ Create Board'}</button>
-    </form>
+    </form>}
     {loading&&<p>Loading your boards…</p>}
     {!loading&&boards.length===0&&<p style={{color:'#64748b'}}>No boards yet. Create your first board above.</p>}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:16}}>

@@ -4,9 +4,16 @@ const auth = require('../middleware/auth');
 const Board = require('../models/Board');
 const List = require('../models/List');
 const Card = require('../models/Card');
+const { canMutateBoards } = require('../utils/boardPermissions');
 
 const router = express.Router();
 router.use(auth());
+router.use((req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !canMutateBoards(req.user)) {
+    return res.status(403).json({ success: false, message: 'Viewer accounts have read-only board access.' });
+  }
+  return next();
+});
 
 const isId = (value) => mongoose.isValidObjectId(value);
 const cleanText = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
