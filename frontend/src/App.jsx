@@ -38,7 +38,7 @@ function Dashboard({user}){
       <span>📅 {date} | 🕒 {time} <button type="button" onClick={()=>window.location.assign('/dashboard/archive')} style={{marginLeft:12,padding:'6px 12px',background:'#475569',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>Archive</button><button type="button" disabled={loggingOut} onClick={logout} style={{marginLeft:8,padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>{loggingOut?'Signing out…':'Logout'}</button></span>
     </header>
     {logoutError&&<p role="alert" style={{background:'#fee2e2',color:'#991b1b',padding:10,textAlign:'center'}}>{logoutError}</p>}
-    {inArchive?<ArchiveBin/>:inBoard?<BoardWorkspace/>:<Kanban/>}
+    {inArchive?<ArchiveBin/>:inBoard?<BoardWorkspace user={user}/>:<Kanban user={user}/>}
   </div>
 }
 
