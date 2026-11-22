@@ -6,7 +6,8 @@ const panel={background:'#fff',border:'1px solid #e2e8f0',borderRadius:12,paddin
 const field={padding:9,border:'1px solid #cbd5e1',borderRadius:8,minWidth:0};
 const primary={padding:'8px 12px',background:'#2563eb',color:'#fff',border:0,borderRadius:7,cursor:'pointer'};
 const dateValue=value=>value?new Date(value).toISOString().slice(0,10):'';
-export default function BoardWorkspace(){
+export default function BoardWorkspace({user}){
+  const readOnly=user?.role==='Viewer';
   const {boardId}=useParams();const navigate=useNavigate();
   const [board,setBoard]=useState(null);const [boardTitle,setBoardTitle]=useState('');const [lists,setLists]=useState([]);const [cards,setCards]=useState({});const [listTitle,setListTitle]=useState('');const [listEdits,setListEdits]=useState({});const [cardTitles,setCardTitles]=useState({});const [editingCard,setEditingCard]=useState(null);const [message,setMessage]=useState('');const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);
   const request=useCallback(async(path,options)=>{const response=await apiFetch(path,options);const data=await response.json().catch(()=>({}));if(response.status===401){navigate('/login');throw new Error('Your session expired.');}if(!response.ok)throw new Error(data.message||'Request failed.');return data;},[navigate]);
@@ -26,28 +27,29 @@ export default function BoardWorkspace(){
   const saveCard=async event=>{event.preventDefault();if(!editingCard||!editingCard.title.trim())return;try{await request('/api/kanban/cards/'+encodeURIComponent(editingCard._id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:editingCard.title,description:editingCard.description,priority:editingCard.priority,dueDate:editingCard.dueDate||null,checklist:editingCard.checklist})});setEditingCard(null);await load();}catch(error){setMessage(error.message);}};
   return <main style={{padding:20,maxWidth:1400,margin:'0 auto'}}>
     <button type="button" onClick={()=>navigate('/dashboard')} style={{border:0,background:'transparent',color:'#2563eb',cursor:'pointer',padding:'8px 0'}}>← All boards</button>
+    {readOnly&&<p role="status" style={{background:'#eff6ff',color:'#1e40af',padding:10,borderRadius:8}}>Viewer access is read-only. You can view this board, lists and cards.</p>}
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:16}}>
-      <form onSubmit={saveBoard} style={{display:'flex',gap:8,flex:1,minWidth:240}}><input aria-label="Board title" maxLength={100} value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} style={{...field,flex:1,fontSize:20,fontWeight:700}}/><button disabled={saving||!boardTitle.trim()||boardTitle===board?.title} type="submit" style={primary}>Save board</button></form>
-      <form onSubmit={addList} style={{display:'flex',gap:8}}><input aria-label="New list title" maxLength={100} value={listTitle} onChange={e=>setListTitle(e.target.value)} placeholder="New list name" style={field}/><button disabled={saving||!listTitle.trim()} type="submit" style={primary}>+ Add list</button></form>
-      <button type="button" onClick={archiveBoard} style={{padding:'8px 12px',background:'#fee2e2',color:'#991b1b',border:0,borderRadius:7,cursor:'pointer'}}>Archive board</button>
+      {!readOnly&&<form onSubmit={saveBoard} style={{display:'flex',gap:8,flex:1,minWidth:240}}><input aria-label="Board title" maxLength={100} value={boardTitle} onChange={e=>setBoardTitle(e.target.value)} style={{...field,flex:1,fontSize:20,fontWeight:700}}/><button disabled={saving||!boardTitle.trim()||boardTitle===board?.title} type="submit" style={primary}>Save board</button></form>}
+      {!readOnly&&<form onSubmit={addList} style={{display:'flex',gap:8}}><input aria-label="New list title" maxLength={100} value={listTitle} onChange={e=>setListTitle(e.target.value)} placeholder="New list name" style={field}/><button disabled={saving||!listTitle.trim()} type="submit" style={primary}>+ Add list</button></form>}
+      {!readOnly&&<button type="button" onClick={archiveBoard} style={{padding:'8px 12px',background:'#fee2e2',color:'#991b1b',border:0,borderRadius:7,cursor:'pointer'}}>Archive board</button>}
     </div>
     {board?.description&&<p style={{color:'#64748b'}}>{board.description}</p>}
     {message&&<p role="status" aria-live="polite" style={{background:'#eff6ff',color:'#1e40af',padding:10,borderRadius:8}}>{message}</p>}
     {loading?<p>Loading board…</p>:<section aria-label="Board lists" style={{display:'flex',alignItems:'flex-start',gap:14,overflowX:'auto',padding:'8px 0 24px'}}>
       {lists.map(list=><article key={list._id} style={{...panel,flex:'0 0 300px',background:'#f8fafc'}}>
-        <div style={{display:'flex',gap:6,marginBottom:8}}><input aria-label={'List title '+list.title} maxLength={100} value={listEdits[list._id]??list.title} onChange={e=>setListEdits(old=>({...old,[list._id]:e.target.value}))} style={{...field,width:'100%',fontWeight:700}}/><button type="button" disabled={!listEdits[list._id]?.trim()||listEdits[list._id]===list.title} onClick={()=>renameList(list._id)} style={primary}>Save</button></div>
-        <button type="button" onClick={()=>archiveList(list)} style={{border:0,background:'transparent',color:'#b91c1c',fontSize:12,cursor:'pointer',padding:'2px 0 10px'}}>Archive list</button>
+        {readOnly?<h3>{list.title}</h3>:<div style={{display:'flex',gap:6,marginBottom:8}}><input aria-label={'List title '+list.title} maxLength={100} value={listEdits[list._id]??list.title} onChange={e=>setListEdits(old=>({...old,[list._id]:e.target.value}))} style={{...field,width:'100%',fontWeight:700}}/><button type="button" disabled={!listEdits[list._id]?.trim()||listEdits[list._id]===list.title} onClick={()=>renameList(list._id)} style={primary}>Save</button></div>}
+        {!readOnly&&<button type="button" onClick={()=>archiveList(list)} style={{border:0,background:'transparent',color:'#b91c1c',fontSize:12,cursor:'pointer',padding:'2px 0 10px'}}>Archive list</button>}
         {(cards[list._id]||[]).map(card=><div key={card._id} style={{...panel,marginBottom:10,boxShadow:'0 1px 2px #00000010'}}>
           <strong>{card.title}</strong>
           <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',marginTop:6}}><small style={{color:'#64748b'}}>Priority: {card.priority||'Medium'}</small>{card.dueDate&&<small style={{color:'#64748b'}}>Due: {dateValue(card.dueDate)}</small>}</div>
           {card.description&&<p style={{fontSize:13,color:'#475569'}}>{card.description}</p>}
           {card.checklist?.length>0&&<p style={{fontSize:12,color:'#475569'}}>{card.checklist.filter(item=>item.done).length}/{card.checklist.length} checklist items complete</p>}
-          <div style={{display:'flex',gap:6,marginTop:10,alignItems:'center',flexWrap:'wrap'}}>
+          {!readOnly&&<div style={{display:'flex',gap:6,marginTop:10,alignItems:'center',flexWrap:'wrap'}}>
             <label style={{fontSize:12}}>Move to <select aria-label={'Move '+card.title} value={card.list} onChange={e=>moveCard(card,e.target.value)} style={{maxWidth:130}}>{lists.map(option=><option key={option._id} value={option._id}>{option.title}</option>)}</select></label>
             <button type="button" onClick={()=>beginEdit(card)} style={{border:0,background:'#dbeafe',color:'#1d4ed8',borderRadius:6,padding:'5px 8px',cursor:'pointer'}}>Edit</button>
             <button type="button" onClick={()=>archiveCard(card)} style={{marginLeft:'auto',border:0,background:'#fee2e2',color:'#991b1b',borderRadius:6,padding:'5px 8px',cursor:'pointer'}}>Archive</button>
-          </div>
-          {editingCard?._id===card._id&&<form onSubmit={saveCard} style={{display:'grid',gap:8,marginTop:12,borderTop:'1px solid #e2e8f0',paddingTop:12}}>
+          </div>}
+          {!readOnly&&editingCard?._id===card._id&&<form onSubmit={saveCard} style={{display:'grid',gap:8,marginTop:12,borderTop:'1px solid #e2e8f0',paddingTop:12}}>
             <label style={{fontSize:12}}>Title<input required maxLength={200} value={editingCard.title} onChange={e=>updateDraft('title',e.target.value)} style={{...field,width:'100%',marginTop:4}}/></label>
             <label style={{fontSize:12}}>Description<textarea maxLength={10000} value={editingCard.description} onChange={e=>updateDraft('description',e.target.value)} rows={3} style={{...field,width:'100%',marginTop:4}}/></label>
             <label style={{fontSize:12}}>Priority<select value={editingCard.priority} onChange={e=>updateDraft('priority',e.target.value)} style={{...field,width:'100%',marginTop:4}}>{['Low','Medium','High','Urgent'].map(value=><option key={value}>{value}</option>)}</select></label>
@@ -56,7 +58,7 @@ export default function BoardWorkspace(){
             <div style={{display:'flex',gap:8}}><button type="submit" disabled={!editingCard.title.trim()||editingCard.checklist.some(item=>!item.text.trim()||item.text.trim().length>300)} style={primary}>Save card</button><button type="button" onClick={()=>setEditingCard(null)} style={{...primary,background:'#e2e8f0',color:'#0f172a'}}>Cancel</button></div>
           </form>}
         </div>)}
-        <form onSubmit={event=>addCard(list._id,event)} style={{display:'flex',gap:6,marginTop:10}}><input aria-label={'New card in '+list.title} maxLength={200} value={cardTitles[list._id]||''} onChange={e=>setCardTitles(old=>({...old,[list._id]:e.target.value}))} placeholder="Add a card…" style={{...field,width:'100%'}}/><button type="submit" style={primary}>+</button></form>
+        {!readOnly&&<form onSubmit={event=>addCard(list._id,event)} style={{display:'flex',gap:6,marginTop:10}}><input aria-label={'New card in '+list.title} maxLength={200} value={cardTitles[list._id]||''} onChange={e=>setCardTitles(old=>({...old,[list._id]:e.target.value}))} placeholder="Add a card…" style={{...field,width:'100%'}}/><button type="submit" style={primary}>+</button></form>}
       </article>)}
       {!lists.length&&<p style={{color:'#64748b'}}>No lists yet. Add your first list above.</p>}
     </section>}
