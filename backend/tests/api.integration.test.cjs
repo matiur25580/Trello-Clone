@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
@@ -275,7 +276,7 @@ test('MongoDB replica-set API enforces signup roles, cookie CSRF, board isolatio
     assert.equal(memberBoardRename.status, 200);
 
     const viewerUser = await User.create({
-      fullName: 'Viewer User', email: 'viewer@example.test', password: 'viewer-password-123',
+      fullName: 'Viewer User', email: 'viewer@example.test', password: await bcrypt.hash('viewer-password-123', 10),
       role: 'Viewer', uniqueId: 'VIEWER-0001', isVerified: true, isActive: true
     });
     await Board.updateOne({ _id: board._id }, { $addToSet: { members: viewerUser._id } });
