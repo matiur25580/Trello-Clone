@@ -36,7 +36,7 @@ async function installApiMocks(page, { authenticated = true, role = 'Member' } =
     }
     if (path === '/api/auth/me' && method === 'GET') {
       return state.authenticated
-        ? json({ success: true, csrfToken: 'test-csrf-token', user })
+        ? json({ success: true, csrfToken: 'test-csrf-token', user: { ...user, role } })
         : route.fulfill({ status: 401, contentType: 'application/json', body: '{"message":"Authentication required."}' });
     }
     if (path === '/api/auth/logout' && method === 'POST') {
