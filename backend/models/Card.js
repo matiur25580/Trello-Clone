@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// A card is a task inside a list; board is also stored to support board-scoped queries.
 const cardSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, minlength: 1, maxlength: 200 },
   description: { type: String, trim: true, maxlength: 10000, default: '' },
@@ -13,6 +14,7 @@ const cardSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false }
 }, { timestamps: true });
 
+// These compound indexes help load active cards in list order and filter cards by board.
 cardSchema.index({ list: 1, isArchived: 1, position: 1 });
 cardSchema.index({ board: 1, isArchived: 1 });
 module.exports = mongoose.models.Card || mongoose.model('Card', cardSchema);
