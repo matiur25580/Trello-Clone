@@ -1,6 +1,8 @@
 const RateLimit = require('../models/RateLimit');
 
+// Shared rate-limit middleware: each key gets a fixed time window and request budget.
 module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
+  // Validate configuration once, before this middleware is attached to routes.
   if (!Number.isInteger(windowMs) || windowMs < 1000 || !Number.isInteger(limit) || limit < 1 || typeof keyGenerator !== 'function') {
     throw new TypeError('Invalid rate limiter configuration.');
   }
@@ -12,6 +14,7 @@ module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
       const now = new Date();
       const nextReset = new Date(now.getTime() + windowMs);
       const filter = { key };
+      // Use an atomic update so simultaneous requests cannot overwrite each other's counters.
       const update = [{
         $set: {
           count: {
@@ -35,6 +38,7 @@ module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
       try {
         record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
       } catch (error) {
+        // Concurrent first requests may race to create the same key; recover from that duplicate-key race.
         if (error.code !== 11000) throw error;
         record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: false, setDefaultsOnInsert: false });
         if (!record) record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
