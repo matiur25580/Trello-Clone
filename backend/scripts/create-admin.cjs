@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('node:crypto');
 const User = require('../models/User');
 
+// One-time bootstrap script: creates the first administrator only when no admin account exists.
 async function main() {
   const { MONGO_URI, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME = 'Workspace Administrator' } = process.env;
   if (!MONGO_URI || !ADMIN_EMAIL || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 16) {
