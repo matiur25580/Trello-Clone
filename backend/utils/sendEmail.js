@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 
+// Sends the short-lived verification code through the SMTP account configured in the environment.
 async function sendOTP(email, otp) {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
