@@ -1,3 +1,4 @@
+// Board model describes the MongoDB document used to organize a user's Kanban workspace.
 const mongoose = require('mongoose');
 
 const boardSchema = new mongoose.Schema({
