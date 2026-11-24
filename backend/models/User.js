@@ -1,15 +1,18 @@
 const mongoose = require('mongoose');
 
+// Stores account identity, access role, verification state, and token invalidation version.
 const userSchema = new mongoose.Schema({
   fullName: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
   email: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
   role: { type: String, enum: ['Admin', 'Manager', 'Member', 'Viewer'], default: 'Member', required: true },
   uniqueId: { type: String, unique: true, required: true, immutable: true },
+  // Password is excluded from normal queries; authentication code must explicitly select it when needed.
   password: { type: String, required: true, select: false },
   isVerified: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   tokenVersion: { type: Number, default: 0 }
 }, { timestamps: true, toJSON: { transform: (_doc, ret) => { delete ret.password; delete ret.__v; return ret; } } });
 
+// Enforces one account per normalized email address.
 userSchema.index({ email: 1 }, { unique: true });
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);
