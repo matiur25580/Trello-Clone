@@ -6,6 +6,7 @@ const List = require('../models/List');
 const Card = require('../models/Card');
 const { canMutateBoards } = require('../utils/boardPermissions');
 
+// All Kanban endpoints require authentication; write requests are also checked against the user's role.
 const router = express.Router();
 router.use(auth());
 router.use((req, res, next) => {
@@ -18,6 +19,7 @@ router.use((req, res, next) => {
 const isId = (value) => mongoose.isValidObjectId(value);
 const cleanText = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
+// A board is accessible to its owner and explicitly added members, but archived boards stay hidden.
 async function accessibleBoard(boardId, userId) {
   if (!isId(boardId)) return null;
   return Board.findOne({
@@ -26,6 +28,7 @@ async function accessibleBoard(boardId, userId) {
   });
 }
 
+// Ownership-only lookup is used for actions such as archiving or restoring a board.
 async function ownedBoard(boardId, userId, archived = false) {
   if (!isId(boardId)) return null;
   return Board.findOne({ _id: boardId, owner: userId, isArchived: archived });
