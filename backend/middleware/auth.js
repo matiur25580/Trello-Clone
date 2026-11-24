@@ -1,3 +1,4 @@
+// Authentication middleware verifies the caller's token before protected board operations.
 const jwt = require('jsonwebtoken');
 const crypto = require('node:crypto');
 const User = require('../models/User');
