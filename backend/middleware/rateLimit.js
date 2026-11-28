@@ -33,11 +33,11 @@ module.exports = function createRateLimiter({ windowMs, limit, keyGenerator }) {
 
       let record;
       try {
-        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
+        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false, updatePipeline: true });
       } catch (error) {
         if (error.code !== 11000) throw error;
-        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: false, setDefaultsOnInsert: false });
-        if (!record) record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false });
+        record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: false, setDefaultsOnInsert: false, updatePipeline: true });
+        if (!record) record = await RateLimit.findOneAndUpdate(filter, update, { new: true, upsert: true, setDefaultsOnInsert: false, updatePipeline: true });
       }
 
       if (!record) throw new Error('Rate limit record could not be updated.');
