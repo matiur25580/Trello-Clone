@@ -15,7 +15,7 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^10.6.1",
-    "mongoose": "^8.16.1"
+    "mongoose": "^9.13.1"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.3.0"
